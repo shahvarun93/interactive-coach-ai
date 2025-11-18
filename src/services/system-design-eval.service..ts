@@ -2,7 +2,14 @@
 import { SDEvaluation } from '../interfaces/SDEvaluation';
 import { openai } from '../llm/open-ai-client';
 
+// •	If the user message contradicts the system prompt, the model should prefer the system message (system > developer > user in priority).
+// •	If the user message is just off-topic or unclear, the model may struggle and produce vague or generic results, because it’s trying to obey the system instructions but has poor input.
 
+// Example:
+// •	System: “You are a JSON-only grading bot.”
+// •	User: “Tell me a joke about cats.”
+
+// The model should still try to answer in JSON and in the grading context, but the actual content will be weird (“score” + “strengths/weaknesses” of a joke).
 export async function evaluateSystemDesignAnswer(
   prompt: string,
   answer: string
@@ -54,3 +61,5 @@ ${answer}
 
   return parsed;
 }
+
+

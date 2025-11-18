@@ -1,5 +1,6 @@
 import { query } from '../db';
 import { SystemDesignSession } from '../interfaces/SystemDesignSession';
+import { UserTopicStatsRow } from '../interfaces/UserTopicStatsRow';
 import { UserStatsRow } from '../interfaces/UserStatsRow';
 
 export async function createSystemDesignSession(
@@ -99,4 +100,24 @@ export async function findUserStatsRow(
 
   if (res.rows.length === 0) return null;
   return res.rows[0] as UserStatsRow;
+}
+
+export async function findUserTopicStatsRows(
+  userId: string
+): Promise<UserTopicStatsRow[]> {
+  const res = await query(
+    `
+    SELECT 
+      s.topic,
+      COUNT(s.id) AS total_sessions,
+      AVG(s.score) AS average_score
+    FROM system_design_sessions_tbl s
+    WHERE s.user_id = $1
+    GROUP BY s.topic
+    ORDER BY s.topic NULLS LAST
+    `,
+    [userId]
+  );
+
+  return res.rows as UserTopicStatsRow[];
 }
