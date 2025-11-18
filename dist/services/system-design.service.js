@@ -39,8 +39,8 @@ exports.createAISystemDesignSessionForUser = createAISystemDesignSessionForUser;
 const system_design_ai_service_1 = require("./system-design-ai.service");
 const systemDesignDao = __importStar(require("../dao/system-design.dao"));
 async function createSystemDesignSession(userId, prompt) {
-    const createSystemDesignSession = await systemDesignDao.createSystemDesignSession(userId, prompt);
-    return createSystemDesignSession;
+    const session = await systemDesignDao.createSystemDesignSession(userId, prompt);
+    return session;
 }
 async function listSessionsForUser(userId) {
     const allUserSessions = await systemDesignDao.listSessionsForUser(userId);

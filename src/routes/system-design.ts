@@ -8,7 +8,7 @@ const router = Router();
 // Create session by email
 router.post('/by-email', async (req, res) => {
   try {
-    const { email, prompt } = req.body;
+    const { email, prompt, topic } = req.body;
 
     if (!email || !prompt) {
       return res.status(400).json({ error: 'email and prompt are required' });
@@ -19,7 +19,7 @@ router.post('/by-email', async (req, res) => {
       return res.status(404).json({ error: 'No user found with this email' });
     }
 
-    const session = await systemDesignService.createSystemDesignSession(user.id, prompt);
+    const session = await systemDesignService.createSystemDesignSession(user.id, prompt, topic ?? null);
     res.status(201).json(session);
   } catch (err) {
     console.error('Error creating SD session by email:', err);
@@ -39,9 +39,10 @@ router.post('/by-email', async (req, res) => {
  */
 router.post('/generate-prompt', async (req, res) => {
     try {
-      const { email, difficulty } = req.body as {
+      const { email, difficulty, topic } = req.body as {
         email?: string;
         difficulty?: 'easy' | 'medium' | 'hard';
+        topic: string | null;
       };
   
       if (!email) {
@@ -55,7 +56,8 @@ router.post('/generate-prompt', async (req, res) => {
   
       const { session, question } = await systemDesignService.createAISystemDesignSessionForUser(
         user.id,
-        difficulty ?? 'medium'
+        difficulty ?? 'medium',
+        topic ?? null
       );
   
       res.status(201).json({
@@ -104,7 +106,7 @@ router.post('/submit-answer', async (req, res) => {
 });
 
 // src/routes/system-design.ts
-router.get('/session/:id', async (req, res) => {
+router.get('/session/:id', async (req, res) => { // here :id = sessionId
   try {
     const session = await systemDesignService.getSessionById(req.params.id);
     if (!session) {
@@ -132,6 +134,7 @@ router.get('/session/:id', async (req, res) => {
       weaknesses,
       createdAt: session.created_at,
       updatedAt: session.updated_at,
+      topic: session.topic
     });
   } catch (err) {
     console.error('Error fetching SD session:', err);
@@ -139,9 +142,9 @@ router.get('/session/:id', async (req, res) => {
   }
 });
 
-router.get('/user/:id/stats', async (req, res) => {
+router.get('/user/:userId/stats', async (req, res) => { // here :id = userId
   try {
-    const userId = req.params.id;
+    const userId = req.params.userId;
 
     const stats = await systemDesignService.getUserStats(userId);
     if (!stats) {
@@ -152,6 +155,32 @@ router.get('/user/:id/stats', async (req, res) => {
   } catch (err) {
     console.error('Error fetching user stats:', err);
     return res.status(500).json({ error: 'Failed to fetch user stats' });
+  }
+});
+
+router.get('/user/:userId/sessions', async (req, res) => { // here :id = userId
+  try {
+    const userId = req.params.userId;
+    const sessions = await systemDesignService.listSessionsForUser(userId);
+
+    // If you want to be nice and return an empty array instead of 404:
+    return res.json(
+      sessions.map((session) => ({
+        id: session.id,
+        userId: session.user_id,
+        prompt: session.prompt,
+        answer: session.answer,
+        score: session.score,
+        strengths: session.strengths,
+        weaknesses: session.weaknesses,
+        createdAt: session.created_at,
+        updatedAt: session.updated_at,
+        topic: session.topic
+      }))
+    );
+  } catch (err) {
+    console.error('Error fetching sessions for user:', err);
+    return res.status(500).json({ error: 'Failed to fetch sessions for user' });
   }
 });
 

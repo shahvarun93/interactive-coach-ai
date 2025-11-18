@@ -28,9 +28,10 @@ export async function submitSystemDesignAnswer(
 
 export async function createSystemDesignSession(
   userId: string,
-  prompt: string
+  prompt: string,
+  topic: string | null
 ): Promise<SystemDesignSession> {
-  const createSystemDesignSession = await systemDesignDao.createSystemDesignSession(userId, prompt);
+  const createSystemDesignSession = await systemDesignDao.createSystemDesignSession(userId, prompt, topic);
 
   return createSystemDesignSession;
 }
@@ -44,11 +45,12 @@ export async function listSessionsForUser(
 
 export async function createAISystemDesignSessionForUser(
   userId: string,
-  difficulty: 'easy' | 'medium' | 'hard' = 'medium'
+  difficulty: 'easy' | 'medium' | 'hard' = 'medium',
+  topic: string | null
 ): Promise<{ session: SystemDesignSession; question: string }> {
   const { question } = await generateSystemDesignQuestion(difficulty);
 
-  const session = await createSystemDesignSession(userId, question);
+  const session = await createSystemDesignSession(userId, question, topic);
 
   return { session, question };
 }
@@ -74,3 +76,4 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
     lastSessionAt: row.last_session_at,
   };
 }
+

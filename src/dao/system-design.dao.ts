@@ -1,19 +1,19 @@
 import { query } from '../db';
 import { SystemDesignSession } from '../interfaces/SystemDesignSession';
-import { UserStats } from '../interfaces/UserStats';
 import { UserStatsRow } from '../interfaces/UserStatsRow';
 
 export async function createSystemDesignSession(
     userId: string,
-    prompt: string
+    prompt: string,
+    topic: string | null
 ): Promise<SystemDesignSession> {
     const res = await query(
       `
-      INSERT INTO system_design_sessions_tbl (user_id, prompt)
-      VALUES ($1, $2)
-      RETURNING id, user_id, prompt, answer, score, strengths, weaknesses, created_at, updated_at
+      INSERT INTO system_design_sessions_tbl (user_id, prompt, topic)
+      VALUES ($1, $2, $3)
+      RETURNING id, user_id, prompt, answer, score, strengths, weaknesses, created_at, updated_at, topic
       `,
-      [userId, prompt]
+      [userId, prompt, topic]
     );
   
     return res.rows[0] as SystemDesignSession;
@@ -24,7 +24,7 @@ export async function listSessionsForUser(
 ): Promise<SystemDesignSession[]> {
     const res = await query(
       `
-      SELECT id, user_id, prompt, answer, score, strengths, weaknesses, created_at, updated_at
+      SELECT id, user_id, prompt, answer, score, strengths, weaknesses, created_at, updated_at, topic
       FROM system_design_sessions_tbl
       WHERE user_id = $1
       ORDER BY created_at DESC
@@ -40,7 +40,7 @@ export async function getSessionById(
 ): Promise<SystemDesignSession | null> {
   const res = await query(
     `
-    SELECT id, user_id, prompt, answer, score, strengths, weaknesses, created_at, updated_at
+    SELECT id, user_id, prompt, answer, score, strengths, weaknesses, created_at, updated_at, topic
     FROM system_design_sessions_tbl
     WHERE id = $1
     `,
@@ -65,7 +65,7 @@ export async function updateSystemDesignSessions(
         weaknesses = $4,
         updated_at = now()
     WHERE id = $5
-    RETURNING id, user_id, prompt, answer, score, strengths, weaknesses, created_at, updated_at
+    RETURNING id, user_id, prompt, answer, score, strengths, weaknesses, created_at, updated_at, topic
     `,
     [
       answer,
@@ -90,7 +90,7 @@ export async function findUserStatsRow(
       AVG(s.score) AS average_score,
       MAX(s.created_at) AS last_session_at
     FROM users_tbl u
-    LEFT JOIN system_design_sessions s ON s.user_id = u.id
+    LEFT JOIN system_design_sessions_tbl s ON s.user_id = u.id
     WHERE u.id = $1
     GROUP BY u.id
     `,

@@ -10,4 +10,5 @@ export interface SystemDesignSession {
     weaknesses: string | null;
     created_at: string;
     updated_at: string;
+    topic: string | null;
   }
