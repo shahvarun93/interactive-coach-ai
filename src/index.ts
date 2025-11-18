@@ -13,9 +13,10 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 // Routes
-app.use(healthRouter);
-app.use('/users', usersRouter); // base path for user routes
-app.use('/system-design', systemDesignRouter);
+const API_PREFIX = '/api/v1';
+app.use(`${API_PREFIX}/health`, healthRouter);
+app.use(`${API_PREFIX}/users`, usersRouter);
+app.use(`${API_PREFIX}/system-design`, systemDesignRouter);
 
 app.listen(PORT, () => {
   console.log(`API server running at http://localhost:${PORT}`);
