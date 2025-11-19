@@ -1,10 +1,17 @@
 // src/services/systemDesignService.ts
-import { SystemDesignSession } from '../interfaces/SystemDesignSession';
-import { generateSystemDesignQuestion } from './system-design-ai.service';
-import * as systemDesignDao from '../dao/system-design.dao';
-import { evaluateSystemDesignAnswer } from './system-design-eval.service.';
-import { SubmitAnswerResult } from '../interfaces/SubmitAnswerResult';
-import { OverallLevel, TopicStats, UserStats } from '../interfaces/UserStats';
+import { SystemDesignSession } from "../interfaces/SystemDesignSession";
+import * as systemDesignDao from "../dao/system-design.dao";
+import * as systemDesignAiService from "./system-design-ai.service";
+import * as usersDao from "../dao/users.dao";
+import { evaluateSystemDesignAnswer } from "./system-design-eval.service.";
+import { SubmitAnswerResult } from "../interfaces/SubmitAnswerResult";
+import {
+  OverallLevel,
+  TopicLabel,
+  TopicStats,
+  UserSystemDesignStats,
+} from "../interfaces/UserSDStats";
+import { SystemDesignCoachResponse } from "../interfaces/SystemDesignCoach";
 
 export async function submitSystemDesignAnswer(
   sessionId: string,
@@ -12,13 +19,19 @@ export async function submitSystemDesignAnswer(
 ): Promise<SubmitAnswerResult> {
   const session = await systemDesignDao.getSessionById(sessionId);
   if (!session) {
-    throw new Error('SESSION_NOT_FOUND');
+    throw new Error("SESSION_NOT_FOUND");
   }
 
   const evaluation = await evaluateSystemDesignAnswer(session.prompt, answer);
 
   // We’ll store strengths/weaknesses as JSON string in TEXT columns
-  const systemDesignSession = await systemDesignDao.updateSystemDesignSessions(answer, evaluation.score, JSON.stringify(evaluation.strengths), JSON.stringify(evaluation.weaknesses), sessionId);
+  const systemDesignSession = await systemDesignDao.updateSystemDesignSessions(
+    answer,
+    evaluation.score,
+    JSON.stringify(evaluation.strengths),
+    JSON.stringify(evaluation.weaknesses),
+    sessionId
+  );
 
   return {
     session: systemDesignSession as SystemDesignSession,
@@ -31,7 +44,8 @@ export async function createSystemDesignSession(
   prompt: string,
   topic: string | null
 ): Promise<SystemDesignSession> {
-  const createSystemDesignSession = await systemDesignDao.createSystemDesignSession(userId, prompt, topic);
+  const createSystemDesignSession =
+    await systemDesignDao.createSystemDesignSession(userId, prompt, topic);
 
   return createSystemDesignSession;
 }
@@ -45,10 +59,13 @@ export async function listSessionsForUser(
 
 export async function createAISystemDesignSessionForUser(
   userId: string,
-  difficulty: 'easy' | 'medium' | 'hard' = 'medium',
+  difficulty: "easy" | "medium" | "hard" = "medium",
   topic: string | null
 ): Promise<{ session: SystemDesignSession; question: string }> {
-  const { question } = await generateSystemDesignQuestion(difficulty, topic);
+  const { question } = await systemDesignAiService.generateSystemDesignQuestion(
+    difficulty,
+    topic
+  );
 
   const session = await createSystemDesignSession(userId, question, topic);
 
@@ -72,61 +89,157 @@ export async function getSessionById(
 // •	Then we say:
 
 // If topicAverageScore < overallAvg → that topic goes into weakTopics.
-export async function getUserStats(userId: string): Promise<UserStats | null> {
-  const row = await systemDesignDao.findUserStatsRow(userId);
-  if (!row) return null;
+export async function getUserStats(
+  userId: string
+): Promise<UserSystemDesignStats | null> {
+  // Delegate to the new consistent implementation.
+  // Returning a non-null value is fine for the wider UserSystemDesignStats | null type.
+  return getUserSystemDesignStats(userId);
+}
 
-  const overallAvg =
-    row.average_score !== null ? Number(row.average_score) : null;
-
-  let overallLevel: OverallLevel | null = null;
-  if (overallAvg !== null) {
-    if (overallAvg < 5) overallLevel = 'needs_improvement';
-    else if (overallAvg < 7) overallLevel = 'intermediate';
-    else overallLevel = 'strong';
+export async function createCoachFeedbackForSession(
+  email: string,
+  sessionId: string
+): Promise<SystemDesignCoachResponse> {
+  const user = await usersDao.findUserByEmail(email);
+  if (!user) {
+    throw new Error(`User not found for email: ${email}`);
   }
 
-  const topicRows = await systemDesignDao.findUserTopicStatsRows(userId);
+  const session = await systemDesignDao.findSystemDesignSessionById(sessionId);
+  if (!session || session.user_id !== user.id) {
+    throw new Error("Session not found for this user.");
+  }
 
-  const topics: TopicStats[] = topicRows
-    .filter((r) => r.topic !== null)
-    .map((r) => {
-      const avg =
-        r.average_score !== null ? Number(r.average_score) : null;
-      const base = overallAvg;
+  // ✅ Use prompt instead of question (most likely your column)
+  const question = (session as any).question ?? (session as any).prompt;
+  if (!question || !session.answer) {
+    throw new Error(
+      "Session does not have both question/prompt and answer stored. Submit an answer first."
+    );
+  }
 
-      let label: 'weak' | 'neutral' | 'strong' = 'neutral';
+  if (session.score == null) {
+    throw new Error(
+      "Session does not have a score yet. Call submit-answer before requesting coach feedback."
+    );
+  }
 
-      if (base !== null && avg !== null) {
-        if (avg <= base - 1) label = 'weak';
-        else if (avg >= base + 1) label = 'strong';
-      }
+  // ✅ Normalize strengths: DB may store as string, not string[]
+  const strengthsArray: string[] = Array.isArray(session.strengths)
+    ? session.strengths
+    : session.strengths
+    ? [session.strengths]
+    : [];
 
+  // ✅ Normalize weaknesses similarly
+  const weaknessesArray: string[] = Array.isArray(session.weaknesses)
+    ? session.weaknesses
+    : session.weaknesses
+    ? [session.weaknesses]
+    : [];
+
+  // ✅ If you don't have a difficulty column, just default to 'medium'
+  const topic = (session as any).topic ?? "general";
+  const difficulty = (session as any).difficulty ?? "medium";
+
+  const coachFeedback =
+    await systemDesignAiService.generateSystemDesignCoachFeedback({
+      topic,
+      difficulty,
+      question,
+      answer: session.answer,
+      score: session.score,
+      strengths: strengthsArray,
+      weaknesses: weaknessesArray,
+    });
+
+  return {
+    sessionId: session.id,
+    topic,
+    difficulty,
+    score: session.score,
+    coachFeedback,
+  };
+}
+
+export async function getUserSystemDesignStats(
+  userId: string
+): Promise<UserSystemDesignStats> {
+  const sessions = await systemDesignDao.findSystemDesignSessionsForUser(
+    userId
+  );
+
+  const totalSessions = sessions.length;
+  const answered = sessions.filter((s) => s.score != null);
+
+  const answeredSessions = answered.length;
+
+  const averageScore =
+    answeredSessions > 0
+      ? answered.reduce((sum, s) => sum + (s.score ?? 0), 0) / answeredSessions
+      : null;
+
+  const lastSessionAt = sessions.length > 0 ? String(sessions[0].created_at) : null;
+
+  // Group by topic for answered sessions only
+  const topicMap = new Map<string, { count: number; sum: number }>();
+
+  for (const s of answered) {
+    const topic = s.topic || "unknown";
+    const entry = topicMap.get(topic) ?? { count: 0, sum: 0 };
+    entry.count += 1;
+    entry.sum += s.score ?? 0;
+    topicMap.set(topic, entry);
+  }
+
+  const topics: TopicStats[] = Array.from(topicMap.entries()).map(
+    ([topic, { count, sum }]) => {
+      const avg = sum / count;
+      const label = labelForAverageScore(avg);
       return {
-        topic: r.topic as string,
-        sessions: Number(r.total_sessions) || 0,
+        topic,
+        sessions: count,
         averageScore: avg,
         label,
       };
-    });
+    }
+  );
 
   const weakTopics = topics
-    .filter((t) => t.label === 'weak')
+    .filter((t) => t.label === "weak")
     .map((t) => t.topic);
 
   const strongTopics = topics
-    .filter((t) => t.label === 'strong')
+    .filter((t) => t.label === "strong")
     .map((t) => t.topic);
 
+    let overallLevel: OverallLevel;
+
+  if (averageScore == null) {
+    overallLevel = "needs_improvement";
+  } else if (averageScore < 5) {
+    overallLevel = "needs_improvement";
+  } else if (averageScore < 7) {
+    overallLevel = "intermediate";
+  } else {
+    overallLevel = "strong";
+  }
+
   return {
-    userId: row.user_id,
-    totalSessions: Number(row.total_sessions) || 0,
-    answeredSessions: Number(row.answered_sessions) || 0,
-    averageScore: overallAvg,
-    lastSessionAt: row.last_session_at,
+    userId,
+    totalSessions,
+    answeredSessions,
+    averageScore,
+    lastSessionAt,
     overallLevel,
     topics,
     weakTopics,
     strongTopics,
   };
+}
+function labelForAverageScore(avg: number): TopicLabel {
+  if (avg >= 7) return "strong";
+  if (avg >= 5) return "average";
+  return "weak";
 }

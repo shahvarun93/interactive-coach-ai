@@ -146,7 +146,7 @@ router.get('/user/:userId/stats', async (req, res) => { // here :id = userId
   try {
     const userId = req.params.userId;
 
-    const stats = await systemDesignService.getUserStats(userId);
+    const stats = await systemDesignService.getUserSystemDesignStats(userId);
     if (!stats) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -181,6 +181,28 @@ router.get('/user/:userId/sessions', async (req, res) => { // here :id = userId
   } catch (err) {
     console.error('Error fetching sessions for user:', err);
     return res.status(500).json({ error: 'Failed to fetch sessions for user' });
+  }
+});
+
+router.post('/coach', async (req, res) => {
+  try {
+    const { email, sessionId } = req.body;
+
+    if (!email || !sessionId) {
+      return res.status(400).json({
+        error: 'Missing required fields: email and sessionId are required.',
+      });
+    }
+
+    const result = await systemDesignService.createCoachFeedbackForSession(email, sessionId);
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error('Error generating coach feedback:', err);
+    return res.status(500).json({
+      error: 'Failed to generate coaching feedback.',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    });
   }
 });
 

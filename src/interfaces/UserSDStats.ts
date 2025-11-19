@@ -1,6 +1,6 @@
 export type OverallLevel = 'needs_improvement' | 'intermediate' | 'strong';
 
-export type TopicLabel = 'weak' | 'neutral' | 'strong';
+export type TopicLabel = 'weak' | 'average' | 'strong';
 
 export interface TopicStats {
   topic: string;
@@ -9,14 +9,14 @@ export interface TopicStats {
   label: TopicLabel;
 }
 
-export interface UserStats {
+export interface UserSystemDesignStats {
   userId: string;
   totalSessions: number;
   answeredSessions: number;
   averageScore: number | null;
   lastSessionAt: string | null;
 
-  overallLevel: OverallLevel | null;
+  overallLevel: OverallLevel;
   topics: TopicStats[];
   weakTopics: string[];
   strongTopics: string[];

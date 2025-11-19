@@ -121,3 +121,42 @@ export async function findUserTopicStatsRows(
 
   return res.rows as UserTopicStatsRow[];
 }
+
+export async function findSystemDesignSessionById(
+  sessionId: string
+): Promise<SystemDesignSession | null> {
+  const sql = `
+    SELECT *
+    FROM system_design_sessions_tbl
+    WHERE id = $1
+  `;
+  const result = await query(sql, [sessionId]);
+  return result.rows[0] ?? null;
+}
+// If you later want “coach me on my latest attempt”:
+export async function findLatestSystemDesignSessionForUser(
+  userId: string
+): Promise<SystemDesignSession | null> {
+  const sql = `
+    SELECT *
+    FROM system_design_sessions_tbl
+    WHERE user_id = $1
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+  const result = await query(sql, [userId]);
+  return result.rows[0] ?? null;
+}
+
+export async function findSystemDesignSessionsForUser(
+  userId: string
+): Promise<SystemDesignSession[]> {
+  const sql = `
+    SELECT id, user_id, topic, score, created_at
+    FROM system_design_sessions_tbl
+    WHERE user_id = $1
+    ORDER BY created_at DESC
+  `;
+  const result = await query(sql, [userId]);
+  return result.rows;
+}

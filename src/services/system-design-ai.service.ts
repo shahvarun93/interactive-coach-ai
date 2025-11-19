@@ -1,6 +1,8 @@
 // src/services/systemDesignAI.service.ts
 import { openai } from '../llm/open-ai-client';
 import { GeneratedSDQuestion } from '../interfaces/GeneratedSDQuestion';  
+import { SystemDesignCoachFeedback } from '../interfaces/SystemDesignCoach';
+import { CoachFeedbackArgs } from '../interfaces/CoachFeedbackArgs';
 
 // Effect of generateSystemDesignQuestion:
 // 	•	You’ll get different system design questions across calls, even with the same difficulty + topic.
@@ -101,4 +103,90 @@ Return exactly the question text only.
     'Design a URL shortener like TinyURL for 100M daily active users.';
 
   return { question, difficulty };
+}
+
+export async function generateSystemDesignCoachFeedback(
+  args: CoachFeedbackArgs
+): Promise<SystemDesignCoachFeedback> {
+  const {
+    topic,
+    difficulty,
+    question,
+    answer,
+    score,
+    strengths,
+    weaknesses,
+  } = args;
+
+  const systemPrompt = `
+You are a senior system design interview coach helping a software engineer prepare for FAANG / big-tech interviews.
+
+You receive:
+- The system design question.
+- The candidate's answer.
+- An auto-evaluated score (0–10).
+- Lists of strengths and weaknesses.
+
+Your job:
+1. Summarize where the candidate stands for THIS answer in 2–3 sentences.
+2. Highlight 2–4 things they did well (concrete, not generic).
+3. Highlight 2–4 specific improvements they should make next time for THIS kind of problem.
+4. Optionally suggest the next topic + difficulty they should practice and why.
+
+Output STRICTLY as JSON with the following shape:
+
+{
+  "summary": string,
+  "whatYouDidWell": string[],
+  "whatToImproveNextTime": string[],
+  "nextPracticeSuggestion": {
+    "suggestedTopic": string,
+    "suggestedDifficulty": "easy" | "medium" | "hard",
+    "reason": string
+  }
+}
+
+If you cannot compute a field, still include it but keep it short and honest.
+  `.trim();
+
+  const userPrompt = `
+SYSTEM DESIGN QUESTION:
+${question}
+
+CANDIDATE ANSWER:
+${answer}
+
+AUTO-EVALUATION:
+- Topic: ${topic}
+- Difficulty: ${difficulty}
+- Score: ${score} / 10
+- Strengths: ${strengths.join('; ') || 'None recorded'}
+- Weaknesses: ${weaknesses.join('; ') || 'None recorded'}
+  `.trim();
+
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4.1-mini', // or gpt-4o / gpt-4o-mini depending on what you use elsewhere
+    temperature: 0.4,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+  });
+
+  const raw = completion.choices[0].message.content ?? '{}';
+
+  let parsed: SystemDesignCoachFeedback;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    console.error('Failed to parse coach JSON:', err, 'raw:', raw);
+    parsed = {
+      summary: 'The coach model failed to return valid JSON. Please try again.',
+      whatYouDidWell: [],
+      whatToImproveNextTime: [],
+      nextPracticeSuggestion: undefined,
+    };
+  }
+
+  return parsed;
 }
