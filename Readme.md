@@ -93,3 +93,9 @@ Core idea:
 •	GenAI: yes, from day 1 (prompts, evaluations, feedback).
 •	AI Agents: yes, once we wire tools (DB, Redis, maybe search/docs).
 •	Agentic AI: yes, when we build the guided multi-step interview flow.
+
+	•	POST /system-design/generate-prompt → creates session with AI question
+	•	POST /system-design/submit-answer → evaluates answer via OpenAI, stores score/feedback
+	•	GET /system-design/session/:id → retrieve one session
+	•	GET /system-design/user/:userId/sessions → list all sessions for a user
+	•	GET /system-design/user/:userId/stats → global stats, hooks ready for topic-based stats
