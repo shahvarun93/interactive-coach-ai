@@ -32,4 +32,27 @@ router.post('/', async (req, res) => {
   }
 });
 
+router.get("/:email/system-design-stats", async (req, res) => {
+  try {
+    const email = req.params.email;
+
+    const stats = await usersService.getSystemDesignStatsForUserEmail(email);
+
+    return res.json(stats);
+  } catch (err: any) {
+    if (err.message === "USER_NOT_FOUND") {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    console.error("Error in GET /users/:email/system-design-stats:", err);
+    return res.status(500).json({
+      error: "Failed to fetch system design stats for user",
+      details:
+        process.env.NODE_ENV === "development"
+          ? err.message ?? String(err)
+          : undefined,
+    });
+  }
+});
+
 export default router;

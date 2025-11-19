@@ -97,6 +97,20 @@
     </div>
 
     <div class="section">
+      <h2>Your Stats</h2>
+      <button id="btn-stats">Refresh Stats</button>
+      <div class="small" id="stats-summary">No stats loaded yet.</div>
+      <div style="margin-top: 0.5rem">
+        <span class="label">Weak topics:</span>
+        <span id="stats-weak">-</span>
+      </div>
+      <div style="margin-top: 0.5rem">
+        <span class="label">Strong topics:</span>
+        <span id="stats-strong">-</span>
+      </div>
+    </div>
+
+    <div class="section">
       <h2>Auto Evaluation</h2>
       <div><span class="label">Score:</span> <span id="score">-</span></div>
       <div style="margin-top: 0.5rem">
@@ -127,7 +141,8 @@
     </div>
 
     <script>
-      const BASE_URL = "/api/v1/system-design";
+      const SD_BASE_URL = "/api/v1/system-design";
+      const USERS_BASE_URL = "/api/v1/users";
 
       let currentSessionId = null;
 
@@ -151,7 +166,7 @@
         }
         setStatus("Requesting next question...");
         try {
-          const res = await fetch(`${BASE_URL}/next-question`, {
+          const res = await fetch(`${SD_BASE_URL}/next-question`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email }),
@@ -204,7 +219,7 @@
         setStatus("Submitting answer...");
         try {
           // 1) submit-answer
-          const resEval = await fetch(`${BASE_URL}/submit-answer`, {
+          const resEval = await fetch(`${SD_BASE_URL}/submit-answer`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -234,7 +249,7 @@
           });
 
           // 2) coach
-          const resCoach = await fetch(`${BASE_URL}/coach`, {
+          const resCoach = await fetch(`${SD_BASE_URL}/coach`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -282,12 +297,68 @@
         }
       }
 
+      async function loadStats() {
+        const email = text("email").value.trim();
+        if (!email) {
+          alert("Please enter your email.");
+          return;
+        }
+
+        setStatus("Loading stats...");
+        try {
+          const res = await fetch(
+            `${USERS_BASE_URL}/${encodeURIComponent(
+              email
+            )}/system-design-stats`
+          );
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${res.status}`);
+          }
+          const stats = await res.json();
+
+          const summaryEl = text("stats-summary");
+          if (stats.answeredSessions > 0) {
+            const avg =
+              typeof stats.averageScore === "number"
+                ? stats.averageScore.toFixed(1)
+                : "-";
+            summaryEl.textContent = `Sessions: ${
+              stats.answeredSessions
+            }, avg score: ${avg}, level: ${stats.overallLevel}`;
+          } else {
+            summaryEl.textContent = "No answered sessions yet.";
+          }
+
+          const weak =
+            stats.weakTopics && stats.weakTopics.length
+              ? stats.weakTopics.join(", ")
+              : "none";
+          const strong =
+            stats.strongTopics && stats.strongTopics.length
+              ? stats.strongTopics.join(", ")
+              : "none";
+
+          text("stats-weak").textContent = weak;
+          text("stats-strong").textContent = strong;
+
+          setStatus("Stats loaded.");
+        } catch (e) {
+          console.error(e);
+          setStatus("Failed to load stats.");
+          alert("Stats error: " + e.message);
+        }
+      }
+
       document
         .getElementById("btn-next")
         .addEventListener("click", getNextQuestion);
       document
         .getElementById("btn-submit")
         .addEventListener("click", submitAnswer);
+      document
+        .getElementById("btn-stats")
+        .addEventListener("click", loadStats);
     </script>
   </body>
 </html>

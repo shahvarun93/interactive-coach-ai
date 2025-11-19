@@ -1,6 +1,8 @@
 // src/services/usersService.ts
 import { User } from '../interfaces/User';
 import * as usersDao from '../dao/users.dao';
+import { UserSystemDesignStats } from '../interfaces/UserSDStats';
+import * as systemDesignService from './system-design.service';
 
 export async function findUserByEmail(email: string): Promise<User | null> {
   const userByEmail = await usersDao.findUserByEmail(email);
@@ -18,4 +20,16 @@ export async function createUser(email: string, name?: string): Promise<User> {
     throw new Error('User already exists');
   }
   return await usersDao.createUser(email, name);
+}
+
+export async function getSystemDesignStatsForUserEmail(
+  email: string
+): Promise<UserSystemDesignStats> {
+  const user = await usersDao.findUserByEmail(email);
+  if (!user) {
+    throw new Error("USER_NOT_FOUND");
+  }
+
+  const stats = await systemDesignService.getUserSystemDesignStats(user.id);
+  return stats;
 }
