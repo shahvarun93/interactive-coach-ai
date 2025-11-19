@@ -23,6 +23,17 @@
             "outFiles": [
                 "${workspaceFolder}/dist/**/*.js"
             ]
-        }
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug: npm run cli:sd",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "cli:sd"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal", // <- important for readline
+            "restart": false,
+            "skipFiles": ["<node_internals>/**"]
+          }
     ]
 }

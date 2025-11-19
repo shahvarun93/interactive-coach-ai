@@ -1,3 +1,5 @@
+npx ts-node src/cli/sd-practice.ts
+
 brew install redis
 brew services start redis
 redis-cli ping   # should say PONG
@@ -99,3 +101,5 @@ Core idea:
 	•	GET /system-design/session/:id → retrieve one session
 	•	GET /system-design/user/:userId/sessions → list all sessions for a user
 	•	GET /system-design/user/:userId/stats → global stats, hooks ready for topic-based stats
+	•	POST /system-design/coach
+	http://localhost:3000/practice -> UI interaction

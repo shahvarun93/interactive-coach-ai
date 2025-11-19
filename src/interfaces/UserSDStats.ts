@@ -1,3 +1,5 @@
+export type Difficulty = "easy" | "medium" | "hard";
+
 export type OverallLevel = 'needs_improvement' | 'intermediate' | 'strong';
 
 export type TopicLabel = 'weak' | 'average' | 'strong';

@@ -3,13 +3,14 @@ import { SystemDesignSession } from "../interfaces/SystemDesignSession";
 import * as systemDesignDao from "../dao/system-design.dao";
 import * as systemDesignAiService from "./system-design-ai.service";
 import * as usersDao from "../dao/users.dao";
-import { evaluateSystemDesignAnswer } from "./system-design-eval.service.";
+import { evaluateSystemDesignAnswer } from "./system-design-eval.service";
 import { SubmitAnswerResult } from "../interfaces/SubmitAnswerResult";
 import {
   OverallLevel,
   TopicLabel,
   TopicStats,
   UserSystemDesignStats,
+  Difficulty,
 } from "../interfaces/UserSDStats";
 import { SystemDesignCoachResponse } from "../interfaces/SystemDesignCoach";
 
@@ -128,6 +129,8 @@ export async function createCoachFeedbackForSession(
   // ✅ Normalize strengths: DB may store as string, not string[]
   const strengthsArray: string[] = Array.isArray(session.strengths)
     ? session.strengths
+    : typeof session.strengths === "string" && session.strengths.startsWith("[")
+    ? JSON.parse(session.strengths)
     : session.strengths
     ? [session.strengths]
     : [];
@@ -180,7 +183,8 @@ export async function getUserSystemDesignStats(
       ? answered.reduce((sum, s) => sum + (s.score ?? 0), 0) / answeredSessions
       : null;
 
-  const lastSessionAt = sessions.length > 0 ? String(sessions[0].created_at) : null;
+  const lastSessionAt =
+    sessions.length > 0 ? String(sessions[0].created_at) : null;
 
   // Group by topic for answered sessions only
   const topicMap = new Map<string, { count: number; sum: number }>();
@@ -214,7 +218,7 @@ export async function getUserSystemDesignStats(
     .filter((t) => t.label === "strong")
     .map((t) => t.topic);
 
-    let overallLevel: OverallLevel;
+  let overallLevel: OverallLevel;
 
   if (averageScore == null) {
     overallLevel = "needs_improvement";
@@ -238,6 +242,78 @@ export async function getUserSystemDesignStats(
     strongTopics,
   };
 }
+
+function chooseDifficultyForTopic(
+  stats: UserSystemDesignStats,
+  topicStats: TopicStats
+): Difficulty {
+  const topicAvg = topicStats.averageScore ?? stats.averageScore ?? 0;
+
+  // If we barely have data for this topic, don't throw the user into fire
+  if (topicStats.sessions < 2) {
+    if (topicAvg >= 7) return "medium"; // user is strong overall, but new topic
+    return "easy";
+  }
+
+  // Simple, monotonic rule:
+  if (topicAvg >= 7) return "hard";
+  if (topicAvg >= 5) return "medium";
+  return "easy";
+}
+
+export async function chooseNextTopicAndDifficultyForUser(
+  userId: string
+): Promise<{ topic: string; difficulty: Difficulty; reason: string }> {
+  const stats = await getUserSystemDesignStats(userId);
+
+  let topic: string;
+  let difficulty: Difficulty;
+  let reason: string;
+
+  if (stats.answeredSessions === 0 || stats.topics.length === 0) {
+    topic = "caching";
+    difficulty = "easy";
+    reason =
+      "No prior history for this user. Starting with an easy caching question.";
+    return { topic, difficulty, reason };
+  }
+
+  if (stats.weakTopics.length > 0) {
+    const weakest = stats.topics
+      .filter((t) => stats.weakTopics.includes(t.topic))
+      .sort((a, b) => (a.averageScore ?? 0) - (b.averageScore ?? 0))[0];
+
+    topic = weakest.topic;
+    difficulty = chooseDifficultyForTopic(stats, weakest);
+    reason = `Focusing on your weakest topic "${topic}" to improve your fundamentals. Difficulty chosen as ${difficulty} based on your topic score and overall level.`;
+    return { topic, difficulty, reason };
+  }
+
+  if (stats.strongTopics.length > 0) {
+    const strongest = stats.topics
+      .filter((t) => stats.strongTopics.includes(t.topic))
+      .sort((a, b) => (b.averageScore ?? 0) - (a.averageScore ?? 0))[0];
+
+    topic = strongest.topic;
+    difficulty = chooseDifficultyForTopic(stats, strongest);
+    reason = `You are strong in "${topic}", so we are pushing difficulty to ${difficulty} to stretch you.`;
+    return { topic, difficulty, reason };
+  }
+
+  const randomTopic =
+    stats.topics[Math.floor(Math.random() * stats.topics.length)].topic;
+
+  topic = randomTopic;
+  difficulty = chooseDifficultyForTopic(
+    stats,
+    stats.topics.find((t) => t.topic === topic)!
+  );
+
+  reason = `No clearly weak/strong topics yet. Practicing "${topic}" at ${difficulty} based on your current performance.`;
+
+  return { topic, difficulty, reason };
+}
+
 function labelForAverageScore(avg: number): TopicLabel {
   if (avg >= 7) return "strong";
   if (avg >= 5) return "average";

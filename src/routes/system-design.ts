@@ -1,6 +1,7 @@
 // src/routes/system-design.ts (or sd.ts)
 import { Router } from 'express';
 import * as systemDesignService from '../services/system-design.service';
+import * as usersDao from "../dao/users.dao";
 import { findUserByEmail } from '../services/users.service';
 
 const router = Router();
@@ -186,6 +187,7 @@ router.get('/user/:userId/sessions', async (req, res) => { // here :id = userId
 
 router.post('/coach', async (req, res) => {
   try {
+    console.log("COACH HIT:", req.body);
     const { email, sessionId } = req.body;
 
     if (!email || !sessionId) {
@@ -202,6 +204,44 @@ router.post('/coach', async (req, res) => {
     return res.status(500).json({
       error: 'Failed to generate coaching feedback.',
       details: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    });
+  }
+});
+
+router.post("/next-question", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "email is required" });
+    }
+
+    const user = await usersDao.findUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: "User not found for this email." });
+    }
+
+    const { topic, difficulty, reason } =
+      await systemDesignService.chooseNextTopicAndDifficultyForUser(user.id);
+
+    const { session, question } = await systemDesignService.createAISystemDesignSessionForUser(
+      user.id,
+      difficulty,
+      topic
+    );
+
+    return res.json({
+      sessionId: session.id,
+      topic,
+      difficulty,
+      question,
+      selectionReason: reason,
+    });
+  } catch (err: any) {
+    console.error("Error in /system-design/next-question:", err);
+    return res.status(500).json({
+      error: "Failed to generate next question.",
+      details:
+        process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }
 });
