@@ -22,6 +22,15 @@ const CoachFeedbackSchema = z.object({
     })
     .optional()
     .nullable(),
+  recommendedResources: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        url: z.string().nullable(),
+      })
+    )
+    .optional(),
 });
 
 type QuestionResponse = z.infer<typeof QuestionResponseSchema>;
@@ -151,6 +160,7 @@ export async function generateSystemDesignCoachFeedback(
     score,
     strengths,
     weaknesses,
+    resources = [],
   } = args;
 
   const systemPrompt = `
@@ -161,12 +171,14 @@ You receive:
 - The candidate's answer.
 - An auto-evaluated score (0–10).
 - Lists of strengths and weaknesses.
+- Relevant learning resources (if available).
 
 Your job:
 1. Summarize where the candidate stands for THIS answer in 2–3 sentences.
 2. Highlight 2–4 things they did well (concrete, not generic).
 3. Highlight 2–4 specific improvements they should make next time for THIS kind of problem.
 4. Optionally suggest the next topic + difficulty they should practice and why.
+5. If learning resources are provided, recommend 2–3 most relevant ones by their IDs that would help the candidate improve in the areas identified.
 
 Output STRICTLY as JSON with the following shape:
 
@@ -178,11 +190,24 @@ Output STRICTLY as JSON with the following shape:
     "suggestedTopic": string,
     "suggestedDifficulty": "easy" | "medium" | "hard",
     "reason": string
-  }
+  },
+  "recommendedResources": [
+    {"id": string, "title": string, "url": string | null}
+  ]
 }
 
 If you cannot compute a field, still include it but keep it short and honest.
   `.trim();
+
+  const resourcesText =
+    resources.length > 0
+      ? `\n\nRELEVANT LEARNING RESOURCES:\n${resources
+          .map(
+            (r) =>
+              `- ID: ${r.id}\n  Title: ${r.title}\n  URL: ${r.url || 'N/A'}\n  Content preview: ${r.content.substring(0, 200)}...`
+          )
+          .join('\n\n')}`
+      : '';
 
   const userPrompt = `
 SYSTEM DESIGN QUESTION:
@@ -196,7 +221,7 @@ AUTO-EVALUATION:
 - Difficulty: ${difficulty}
 - Score: ${score} / 10
 - Strengths: ${strengths.join('; ') || 'None recorded'}
-- Weaknesses: ${weaknesses.join('; ') || 'None recorded'}
+- Weaknesses: ${weaknesses.join('; ') || 'None recorded'}${resourcesText}
   `.trim();
 
   try {
@@ -210,11 +235,29 @@ AUTO-EVALUATION:
       schema: CoachFeedbackSchema,
     });
 
+    // Map recommended resource IDs back to full resource objects
+    const recommendedResources =
+      payload.recommendedResources && resources.length > 0
+        ? payload.recommendedResources
+            .map((rec) => {
+              const resource = resources.find((r) => r.id === rec.id);
+              return resource
+                ? {
+                    id: resource.id,
+                    title: resource.title,
+                    url: resource.url,
+                  }
+                : null;
+            })
+            .filter((r): r is { id: string; title: string; url: string | null } => r !== null)
+        : undefined;
+
     const normalized: SystemDesignCoachFeedback = {
       summary: payload.summary,
       whatYouDidWell: payload.whatYouDidWell,
       whatToImproveNextTime: payload.whatToImproveNextTime,
       nextPracticeSuggestion: payload.nextPracticeSuggestion ?? undefined,
+      recommendedResources,
     };
 
     return normalized;

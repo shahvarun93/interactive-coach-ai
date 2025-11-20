@@ -1,3 +1,5 @@
+import { SDResource } from './SDResource';
+
 export interface CoachFeedbackArgs {
     topic: string;
     difficulty: string;
@@ -6,4 +8,5 @@ export interface CoachFeedbackArgs {
     score: number;
     strengths: string[];
     weaknesses: string[];
+    resources?: SDResource[];
   }

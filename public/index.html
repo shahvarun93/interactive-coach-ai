@@ -138,6 +138,10 @@
         <span class="label">Next practice suggestion:</span>
         <div id="coach-next-practice" class="small"></div>
       </div>
+      <div style="margin-top: 0.5rem">
+        <span class="label">Recommended resources:</span>
+        <ul id="coach-resources"></ul>
+      </div>
     </div>
 
     <script>
@@ -287,6 +291,29 @@
             ).textContent = `Topic: ${nps.suggestedTopic} (${nps.suggestedDifficulty}) – ${nps.reason}`;
           } else {
             text("coach-next-practice").textContent = "";
+          }
+
+          list("coach-resources").innerHTML = "";
+          if (coach.recommendedResources && coach.recommendedResources.length > 0) {
+            coach.recommendedResources.forEach((resource) => {
+              const li = document.createElement("li");
+              if (resource.url) {
+                const link = document.createElement("a");
+                link.href = resource.url;
+                link.textContent = resource.title;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                li.appendChild(link);
+              } else {
+                li.textContent = resource.title;
+              }
+              list("coach-resources").appendChild(li);
+            });
+          } else {
+            const li = document.createElement("li");
+            li.textContent = "No resources recommended at this time.";
+            li.style.color = "#888";
+            list("coach-resources").appendChild(li);
           }
 
           setStatus("Answer evaluated and feedback generated.");

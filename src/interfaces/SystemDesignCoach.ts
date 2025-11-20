@@ -7,6 +7,11 @@ export interface SystemDesignCoachFeedback {
     suggestedDifficulty: 'easy' | 'medium' | 'hard';
     reason: string;
   };
+  recommendedResources?: Array<{
+    id: string;
+    title: string;
+    url: string | null;
+  }>;
 }
 
 export interface SystemDesignCoachResponse {

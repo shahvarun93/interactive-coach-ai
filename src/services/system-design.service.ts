@@ -13,6 +13,7 @@ import {
   Difficulty,
 } from "../interfaces/UserSDStats";
 import { SystemDesignCoachResponse } from "../interfaces/SystemDesignCoach";
+import * as sdResourcesService from "./sd-resources.service";
 
 export async function submitSystemDesignAnswer(
   sessionId: string,
@@ -146,6 +147,9 @@ export async function createCoachFeedbackForSession(
   const topic = (session as any).topic ?? "general";
   const difficulty = (session as any).difficulty ?? "medium";
 
+  // Fetch relevant resources for the topic
+  const resources = await sdResourcesService.findResourcesForTopic(topic, 5);
+
   const coachFeedback =
     await systemDesignAiService.generateSystemDesignCoachFeedback({
       topic,
@@ -155,6 +159,7 @@ export async function createCoachFeedbackForSession(
       score: session.score,
       strengths: strengthsArray,
       weaknesses: weaknessesArray,
+      resources,
     });
 
   return {
