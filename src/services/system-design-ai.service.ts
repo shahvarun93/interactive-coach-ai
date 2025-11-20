@@ -1,8 +1,30 @@
 // src/services/systemDesignAI.service.ts
-import { openai } from '../llm/open-ai-client';
+import { z } from 'zod';
+import { responsesClient } from '../ai/openaiClient';
 import { GeneratedSDQuestion } from '../interfaces/GeneratedSDQuestion';  
 import { SystemDesignCoachFeedback } from '../interfaces/SystemDesignCoach';
 import { CoachFeedbackArgs } from '../interfaces/CoachFeedbackArgs';
+
+const QuestionResponseSchema = z.object({
+  question: z.string().min(1),
+});
+
+const CoachFeedbackSchema = z.object({
+  summary: z.string(),
+  whatYouDidWell: z.array(z.string()),
+  whatToImproveNextTime: z.array(z.string()),
+  nextPracticeSuggestion: z
+    .object({
+      suggestedTopic: z.string(),
+      suggestedDifficulty: z.enum(['easy', 'medium', 'hard']),
+      reason: z.string(),
+    })
+    .optional()
+    .nullable(),
+});
+
+type QuestionResponse = z.infer<typeof QuestionResponseSchema>;
+type CoachFeedbackResponse = z.infer<typeof CoachFeedbackSchema>;
 
 // Effect of generateSystemDesignQuestion:
 // 	•	You’ll get different system design questions across calls, even with the same difficulty + topic.
@@ -85,22 +107,28 @@ Return exactly the question text only.
     ? ` about ${topic} in a large-scale system`
     : '';
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4.1-mini',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content: `Generate a ${difficulty} FAANG-style system design interview question${topicText}. Make this question different from typical textbook examples.`,
-      },
-    ],
-    temperature: 0.9,  // single knob for variety
-    // top_p omitted → defaults to 1.0
-  });
+  let question = 'Design a URL shortener like TinyURL for 100M daily active users.';
 
-  const question =
-    response.choices[0]?.message?.content?.trim() ??
-    'Design a URL shortener like TinyURL for 100M daily active users.';
+  try {
+    const payload = await responsesClient.json({
+      model: 'gpt-4.1-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `${systemPrompt}\nRespond strictly with compact JSON: {"question":"<text>"}.`,
+        },
+        {
+          role: 'user',
+          content: `Generate a ${difficulty} FAANG-style system design interview question${topicText}. Make this question different from typical textbook examples.`,
+        },
+      ],
+      temperature: 0.9,
+      schema: QuestionResponseSchema,
+    });
+    question = payload.question.trim();
+  } catch (err) {
+    console.error('Failed to generate SD question via OpenAI Responses:', err);
+  }
 
   return { question, difficulty };
 }
@@ -164,29 +192,33 @@ AUTO-EVALUATION:
 - Weaknesses: ${weaknesses.join('; ') || 'None recorded'}
   `.trim();
 
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4.1-mini', // or gpt-4o / gpt-4o-mini depending on what you use elsewhere
-    temperature: 0.4,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-  });
-
-  const raw = completion.choices[0].message.content ?? '{}';
-
-  let parsed: SystemDesignCoachFeedback;
   try {
-    parsed = JSON.parse(raw);
+    const payload = await responsesClient.json<CoachFeedbackResponse>({
+      model: 'gpt-4.1-mini',
+      temperature: 0.4,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      schema: CoachFeedbackSchema,
+    });
+
+    const normalized: SystemDesignCoachFeedback = {
+      summary: payload.summary,
+      whatYouDidWell: payload.whatYouDidWell,
+      whatToImproveNextTime: payload.whatToImproveNextTime,
+      nextPracticeSuggestion: payload.nextPracticeSuggestion ?? undefined,
+    };
+
+    return normalized;
   } catch (err) {
-    console.error('Failed to parse coach JSON:', err, 'raw:', raw);
-    parsed = {
+    console.error('Failed to generate coach feedback via OpenAI Responses:', err);
+    const fallback: SystemDesignCoachFeedback = {
       summary: 'The coach model failed to return valid JSON. Please try again.',
       whatYouDidWell: [],
       whatToImproveNextTime: [],
       nextPracticeSuggestion: undefined,
     };
+    return fallback;
   }
-
-  return parsed;
 }
