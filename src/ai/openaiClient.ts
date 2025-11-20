@@ -39,7 +39,7 @@ function extractText(response: Response): string {
   throw new Error('OpenAI response did not contain output_text content');
 }
 
-async function jsonResponse<T>({
+async function openAiClientJsonResponse<T>({
   model = 'gpt-4.1-mini',
   messages,
   schema,
@@ -67,7 +67,7 @@ async function jsonResponse<T>({
   }
 }
 
-async function textResponse({
+async function openAiClientTextResponse({
   model = 'gpt-4.1-mini',
   messages,
   temperature,
@@ -86,6 +86,6 @@ async function textResponse({
 }
 
 export const responsesClient = {
-  json: jsonResponse,
-  text: textResponse,
+  openAiClientJsonResponse: openAiClientJsonResponse,
+  openAiClientTextResponse: openAiClientTextResponse,
 };

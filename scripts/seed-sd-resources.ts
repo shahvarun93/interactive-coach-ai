@@ -77,6 +77,7 @@ const RESOURCES: SeedResource[] = [
   },
 ];
 
+// Embedding = turning text into a vector so we can do similarity search.
 async function embed(text: string): Promise<number[]> {
   const result = await openai.embeddings.create({
     model: 'text-embedding-3-small',

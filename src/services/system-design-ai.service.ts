@@ -126,7 +126,7 @@ Return exactly the question text only.
   let question = 'Design a URL shortener like TinyURL for 100M daily active users.';
 
   try {
-    const payload = await responsesClient.json({
+    const payload = await responsesClient.openAiClientJsonResponse({
       model: 'gpt-4.1-mini',
       messages: [
         {
@@ -225,7 +225,7 @@ AUTO-EVALUATION:
   `.trim();
 
   try {
-    const payload = await responsesClient.json<CoachFeedbackResponse>({
+    const payload = await responsesClient.openAiClientJsonResponse<CoachFeedbackResponse>({
       model: 'gpt-4.1-mini',
       temperature: 0.4,
       messages: [
@@ -286,7 +286,7 @@ Policy:
 Return strict JSON with topic, difficulty, reason.
 `.trim();
 
-  return responsesClient.json({
+  return responsesClient.openAiClientJsonResponse({
     model: 'gpt-4.1-mini',
     temperature: 0.3,
     messages: [
