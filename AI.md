@@ -241,3 +241,69 @@ Those vectors go through a stack of identical transformer layers.
 Each layer applies layer norm, multi-head self-attention (Q, K, V, softmax, weighted sum), then a feed-forward MLP, each wrapped with residual connections.
 After N layers, we take the final hidden state for the last token, project it with a linear layer to get logits over the vocabulary, and apply softmax to get a probability distribution over the next token.
 So inside the architecture it’s basically all vector and matrix operations plus softmax and simple nonlinear activations, with a huge number of learned parameters.”
+
+The agent is whole loop:
+Observe state → Decide next step → Call tools → Update state → Repeat
+
+Your 5 questions = a solid “prompt skeleton”
+	1.	Who the agent is (Role)
+	2.	What input it receives (Inputs/Context)
+	3.	What it needs to do (Task/Goal)
+	4.	Constraints (Rules/Boundaries)
+	5.	Output format (Schema/Style)
+  6.	What tools/actions it can use (if any)
+
+A mnemonic I can remember: RITCS(+T)
+
+Example:
+System Prompt:
+Pronounced like “rights”.
+	•	Role — who are you?
+	•	Inputs — what do you see?
+	•	Task — what must you do?
+	•	Constraints — what rules must you obey?
+	•	Schema — what should your output look like?
+	•	(+T) Tools — what actions are allowed?
+
+ROLE:
+You are <role/persona>.
+
+TASK:
+Your job is to <do X>.
+
+INPUTS YOU WILL RECEIVE:
+You will be given <inputs list>.
+
+CONSTRAINTS:
+- You must <rule 1>.
+- You must not <rule 2>.
+- If information is missing, <what to do>.
+- Keep response under <limit>.
+
+OUTPUT FORMAT (SCHEMA):
+Return ONLY valid <format> in this exact shape:
+{
+  ...
+}
+No extra keys. No markdown. No explanation outside the format.
+
+
+====================ChatGPT============================
+In ChatGPT:
+	•	The text box you type into = user prompt. ✅
+That’s your current “user message.”
+	•	Chat history = conversation context, made of past user messages + assistant replies.
+It’s not the system prompt. It’s just previous turns the model can look at.
+	•	System prompt = hidden instructions you don’t see.
+This is where ChatGPT is told things like:
+“You are ChatGPT, be helpful, follow safety rules, don’t reveal secrets,” etc.
+	•	Custom Instructions / GPT settings / Memories (what you set in ChatGPT) act like extra system/developer guidance, not regular chat history.
+They’re injected behind the scenes to steer tone and preferences.
+
+So a simple mental model:
+	1.	System (hidden rules + your custom instructions)
+	2.	Developer (hidden app-specific rules, if any)
+	3.	Chat history (prior user/assistant turns)
+	4.	Your new message (user prompt in the text box)
+
+====================ChatGPT===============================
