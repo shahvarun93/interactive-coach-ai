@@ -34,15 +34,14 @@ export async function findResourcesByTopic(
 ): Promise<SDResource[]> {
   const result = await query(
     `
-    SELECT id, title, url, topic, content, created_at
+    SELECT id, title, topic, url, content, created_at
     FROM sd_resources
-    WHERE ($1::text IS NULL) OR topic = $1
+    WHERE topic = $1
     ORDER BY created_at DESC
     LIMIT $2
     `,
-    [topic || null, limit]
+    [topic, limit]
   );
 
   return result.rows as SDResource[];
 }
-

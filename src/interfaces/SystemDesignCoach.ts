@@ -20,4 +20,11 @@ export interface SystemDesignCoachResponse {
   difficulty: string;
   score: number;
   coachFeedback: SystemDesignCoachFeedback;
+  resources: {
+    id: string;
+    title: string;
+    url: string | null;
+    topic: string;
+    contentSnippet: string
+  }[];
 }

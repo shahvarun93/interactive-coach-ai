@@ -1,4 +1,4 @@
-// src/services/systemDesignService.ts
+// src/services/system-design.service.ts
 import { SystemDesignSession } from "../interfaces/SystemDesignSession";
 import * as systemDesignDao from "../dao/system-design.dao";
 import * as systemDesignAiService from "./system-design-ai.service";
@@ -105,26 +105,23 @@ export async function createCoachFeedbackForSession(
 ): Promise<SystemDesignCoachResponse> {
   const user = await usersDao.findUserByEmail(email);
   if (!user) {
-    throw new Error(`User not found for email: ${email}`);
+    throw new Error("USER_NOT_FOUND");
   }
 
   const session = await systemDesignDao.findSystemDesignSessionById(sessionId);
   if (!session || session.user_id !== user.id) {
-    throw new Error("Session not found for this user.");
+    throw new Error("SESSION_NOT_FOUND");
   }
 
   // ✅ Use prompt instead of question (most likely your column)
   const question = (session as any).question ?? (session as any).prompt;
-  if (!question || !session.answer) {
+  if (!question) {
     throw new Error(
       "Session does not have both question/prompt and answer stored. Submit an answer first."
     );
   }
-
-  if (session.score == null) {
-    throw new Error(
-      "Session does not have a score yet. Call submit-answer before requesting coach feedback."
-    );
+  if (!session.answer || session.score == null) {
+    throw new Error("ANSWER_NOT_FOUND");
   }
 
   // ✅ Normalize strengths: DB may store as string, not string[]
@@ -139,6 +136,8 @@ export async function createCoachFeedbackForSession(
   // ✅ Normalize weaknesses similarly
   const weaknessesArray: string[] = Array.isArray(session.weaknesses)
     ? session.weaknesses
+    : typeof session.weaknesses === "string" && session.weaknesses.startsWith("[")
+    ? JSON.parse(session.weaknesses)
     : session.weaknesses
     ? [session.weaknesses]
     : [];
@@ -147,8 +146,32 @@ export async function createCoachFeedbackForSession(
   const topic = (session as any).topic ?? "general";
   const difficulty = (session as any).difficulty ?? "medium";
 
+  const TOPIC_ALIASES: Record<string, string> = {
+    "rate-limiting": "rate-limiting",
+    "rate limiting": "rate-limiting",
+    "rate-limit": "rate-limiting",
+    "queues": "messaging",
+    "queue": "messaging",
+    "message-queues": "messaging",
+    "message queues": "messaging",
+    "feed": "feeds",
+    "news-feed": "feeds",
+    "news feed": "feeds",
+  };
+  function normalizeTopic(t: string) {
+    const key = (t || "unknown")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+    return TOPIC_ALIASES[key] || key;
+  }
+  const normalizedTopic = normalizeTopic(topic);
+
   // Fetch relevant resources for the topic
-  const resources = await sdResourcesService.findResourcesForTopic(topic, 5);
+  const resources = await sdResourcesService.findResourcesForTopic(
+    normalizedTopic,
+    5
+  );
 
   const coachFeedback =
     await systemDesignAiService.generateSystemDesignCoachFeedback({
@@ -162,12 +185,22 @@ export async function createCoachFeedbackForSession(
       resources,
     });
 
+  const resourcesPayload = resources.map((r: any) => ({
+    id: r.id,
+    title: r.title,
+    url: r.url ?? null,
+    topic: r.topic,
+    contentSnippet:
+      typeof r.content === "string" ? r.content.slice(0, 160) + "..." : "",
+  }));
+
   return {
     sessionId: session.id,
     topic,
     difficulty,
     score: session.score,
     coachFeedback,
+    resources: resourcesPayload,
   };
 }
 
@@ -179,6 +212,12 @@ export async function getUserSystemDesignStats(
   );
 
   const totalSessions = sessions.length;
+  sessions.sort(
+    (a, b) =>
+      new Date(String(b.created_at)).getTime() -
+      new Date(String(a.created_at)).getTime()
+  );
+
   const answered = sessions.filter((s) => s.score != null);
 
   const answeredSessions = answered.length;

@@ -197,6 +197,8 @@
           text("coach-next-practice").textContent = "";
 
           setStatus("Question loaded.");
+          // Pull latest stats automatically once email is known
+          loadStats(true).catch(() => {});
         } catch (e) {
           console.error(e);
           setStatus("Failed to get question.");
@@ -294,19 +296,37 @@
           }
 
           list("coach-resources").innerHTML = "";
-          if (coach.recommendedResources && coach.recommendedResources.length > 0) {
-            coach.recommendedResources.forEach((resource) => {
+
+          const recommendedFromCoach = coach?.recommendedResources || [];
+          const retrievedFromServer = coachData?.resources || [];
+
+          const resourcesToShow = recommendedFromCoach.length
+            ? recommendedFromCoach
+            : retrievedFromServer;
+
+          if (resourcesToShow.length > 0) {
+            resourcesToShow.forEach((resource) => {
               const li = document.createElement("li");
-              if (resource.url) {
+
+              const title = resource.title || "Resource";
+              const url = resource.url;
+              const snippet = resource.reason || resource.contentSnippet || "";
+
+              if (url) {
                 const link = document.createElement("a");
-                link.href = resource.url;
-                link.textContent = resource.title;
+                link.href = url;
+                link.textContent = title;
                 link.target = "_blank";
                 link.rel = "noopener noreferrer";
                 li.appendChild(link);
               } else {
-                li.textContent = resource.title;
+                li.textContent = title;
               }
+
+              if (snippet) {
+                li.appendChild(document.createTextNode(` — ${snippet}`));
+              }
+
               list("coach-resources").appendChild(li);
             });
           } else {
@@ -317,6 +337,8 @@
           }
 
           setStatus("Answer evaluated and feedback generated.");
+          // Update stats after an answered session
+          loadStats(true).catch(() => {});
         } catch (e) {
           console.error(e);
           setStatus("Error while submitting answer.");
@@ -324,7 +346,7 @@
         }
       }
 
-      async function loadStats() {
+      async function loadStats(silent = false) {
         const email = text("email").value.trim();
         if (!email) {
           alert("Please enter your email.");
@@ -373,9 +395,13 @@
         } catch (e) {
           console.error(e);
           setStatus("Failed to load stats.");
-          alert("Stats error: " + e.message);
+          if (!silent) {
+            alert("Stats error: " + e.message);
+          }
         }
       }
+
+      const emailInput = document.getElementById("email");
 
       document
         .getElementById("btn-next")
@@ -385,7 +411,17 @@
         .addEventListener("click", submitAnswer);
       document
         .getElementById("btn-stats")
-        .addEventListener("click", loadStats);
+        .addEventListener("click", () => loadStats(false));
+
+      // Auto-refresh stats whenever email is changed or user presses Enter
+      emailInput.addEventListener("blur", () => loadStats(true));
+      emailInput.addEventListener("change", () => loadStats(true));
+      emailInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          loadStats(true);
+        }
+      });
     </script>
   </body>
 </html>

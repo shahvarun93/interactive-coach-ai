@@ -87,7 +87,13 @@ async function embed(text: string): Promise<number[]> {
 
 async function seed() {
   for (const resource of RESOURCES) {
-    const embedding = await embed(`${resource.title}\n${resource.content}`);
+    let embedding: number[] | null = null;
+    try {
+      embedding = await embed(`${resource.title}\n${resource.content}`);
+    } catch (e: any) {
+      console.warn("Embedding failed, inserting null for now:", resource.title);
+    }
+
     await pool.query(
       `
       INSERT INTO sd_resources (title, url, topic, content, embedding)
@@ -96,7 +102,7 @@ async function seed() {
         SET url = EXCLUDED.url,
             topic = EXCLUDED.topic,
             content = EXCLUDED.content,
-            embedding = EXCLUDED.embedding,
+            embedding = COALESCE(EXCLUDED.embedding, sd_resources.embedding),
             created_at = NOW()
       `,
       [resource.title, resource.url, resource.topic, resource.content, embedding]
