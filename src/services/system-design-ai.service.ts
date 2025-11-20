@@ -4,6 +4,7 @@ import { responsesClient } from '../ai/openaiClient';
 import { GeneratedSDQuestion } from '../interfaces/GeneratedSDQuestion';  
 import { SystemDesignCoachFeedback } from '../interfaces/SystemDesignCoach';
 import { CoachFeedbackArgs } from '../interfaces/CoachFeedbackArgs';
+import { UserSystemDesignStats } from '../interfaces/UserSDStats';
 
 const QuestionResponseSchema = z.object({
   question: z.string().min(1),
@@ -25,6 +26,12 @@ const CoachFeedbackSchema = z.object({
 
 type QuestionResponse = z.infer<typeof QuestionResponseSchema>;
 type CoachFeedbackResponse = z.infer<typeof CoachFeedbackSchema>;
+const NextTopicSchema = z.object({
+  topic: z.string(),
+  difficulty: z.enum(['easy', 'medium', 'hard']),
+  reason: z.string().min(1),
+});
+export type NextTopicSuggestion = z.infer<typeof NextTopicSchema>;
 
 // Effect of generateSystemDesignQuestion:
 // 	•	You’ll get different system design questions across calls, even with the same difficulty + topic.
@@ -221,4 +228,31 @@ AUTO-EVALUATION:
     };
     return fallback;
   }
+}
+
+export async function aiSuggestNextTopic(
+  stats: UserSystemDesignStats
+): Promise<NextTopicSuggestion> {
+  const systemPrompt = `
+You are the System Design Co-Pilot planning agent. Read prior stats and decide the next practice topic plus difficulty.
+Policy:
+- Prioritize weak topics (avg score < overall avg or labeled weak) until they improve.
+- When strengths dominate, push difficulty higher on strongest topics for stretch reps.
+- Reference concrete stats (scores, counts, labels) in your explanation.
+- Avoid repeating the identical topic twice if multiple weak topics exist.
+Return strict JSON with topic, difficulty, reason.
+`.trim();
+
+  return responsesClient.json({
+    model: 'gpt-4.1-mini',
+    temperature: 0.3,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: JSON.stringify(stats),
+      },
+    ],
+    schema: NextTopicSchema,
+  });
 }

@@ -266,6 +266,23 @@ export async function chooseNextTopicAndDifficultyForUser(
 ): Promise<{ topic: string; difficulty: Difficulty; reason: string }> {
   const stats = await getUserSystemDesignStats(userId);
 
+  if (stats.answeredSessions >= 5) {
+    try {
+      const aiSuggestion =
+        await systemDesignAiService.aiSuggestNextTopic(stats);
+      return {
+        topic: aiSuggestion.topic,
+        difficulty: aiSuggestion.difficulty,
+        reason: aiSuggestion.reason,
+      };
+    } catch (err) {
+      console.warn(
+        "AI topic agent failed, falling back to heuristics:",
+        (err as Error).message
+      );
+    }
+  }
+
   let topic: string;
   let difficulty: Difficulty;
   let reason: string;
