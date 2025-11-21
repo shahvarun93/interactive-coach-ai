@@ -160,3 +160,25 @@ export async function findSystemDesignSessionsForUser(
   const result = await query(sql, [userId]);
   return result.rows;
 }
+
+export async function findRecentAnsweredSessionsByTopic(
+  userId: string,
+  topic: string,
+  limit = 5
+) {
+  const result = await query(
+    `
+    SELECT id, topic, score, weaknesses, created_at
+    FROM system_design_sessions_tbl
+    WHERE user_id = $1
+      AND topic = $2
+      AND answer IS NOT NULL
+      AND score IS NOT NULL
+    ORDER BY created_at DESC
+    LIMIT $3
+    `,
+    [userId, topic, limit]
+  );
+
+  return result.rows;
+}

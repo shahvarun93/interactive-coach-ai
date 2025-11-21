@@ -1,4 +1,5 @@
 import { SDResource } from './SDResource';
+import { TopicMistakePatterns } from './TopicMistakes';
 
 export interface CoachFeedbackArgs {
     topic: string;
@@ -9,4 +10,5 @@ export interface CoachFeedbackArgs {
     strengths: string[];
     weaknesses: string[];
     resources?: SDResource[];
+    topicMistakePatterns: TopicMistakePatterns;
   }

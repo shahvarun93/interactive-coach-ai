@@ -14,6 +14,7 @@ import {
 } from "../interfaces/UserSDStats";
 import { SystemDesignCoachResponse } from "../interfaces/SystemDesignCoach";
 import * as sdResourcesService from "./sd-resources.service";
+import { TopicMistakePatterns } from "../interfaces/TopicMistakes";
 
 export async function submitSystemDesignAnswer(
   sessionId: string,
@@ -167,6 +168,12 @@ export async function createCoachFeedbackForSession(
   }
   const normalizedTopic = normalizeTopic(topic);
 
+  const topicMistakePatterns = await buildTopicMistakePatternsForUser(
+    user.id,
+    topic,
+    5
+  );
+
   // Fetch relevant resources for the topic
   const resources = await sdResourcesService.findResourcesForTopic(
     normalizedTopic,
@@ -183,6 +190,7 @@ export async function createCoachFeedbackForSession(
       strengths: strengthsArray,
       weaknesses: weaknessesArray,
       resources,
+      topicMistakePatterns
     });
 
   const resourcesPayload = resources.map((r: any) => ({
@@ -373,6 +381,57 @@ export async function chooseNextTopicAndDifficultyForUser(
   reason = `No clearly weak/strong topics yet. Practicing "${topic}" at ${difficulty} based on your current performance.`;
 
   return { topic, difficulty, reason };
+}
+
+export async function buildTopicMistakePatternsForUser(
+  userId: string,
+  topic: string,
+  limit = 5
+): Promise<TopicMistakePatterns> {
+  const sessions = await systemDesignDao.findRecentAnsweredSessionsByTopic(
+    userId,
+    topic,
+    limit
+  );
+
+  if (!sessions.length) {
+    return { sessionsConsidered: 0, recurringMistakes: [] };
+  }
+
+  const freq: Record<string, number> = {};
+
+  for (const s of sessions) {
+    let weaknesses: string[] = [];
+
+    if (Array.isArray(s.weaknesses)) {
+      weaknesses = s.weaknesses;
+    } else if (typeof s.weaknesses === 'string' && s.weaknesses.startsWith('[')) {
+      try {
+        weaknesses = JSON.parse(s.weaknesses);
+      } catch {
+        weaknesses = [s.weaknesses];
+      }
+    } else if (typeof s.weaknesses === 'string' && s.weaknesses.trim()) {
+      weaknesses = [s.weaknesses];
+    }
+
+    for (const w of weaknesses) {
+      const key = w.trim().toLowerCase();
+      if (!key) continue;
+      freq[key] = (freq[key] || 0) + 1;
+    }
+  }
+
+  const recurringMistakes = Object.entries(freq)
+    .filter(([, count]) => count >= 2) // appears at least twice
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([mistake, count]) => ({ mistake, count }));
+
+  return {
+    sessionsConsidered: sessions.length,
+    recurringMistakes,
+  };
 }
 
 function labelForAverageScore(avg: number): TopicLabel {

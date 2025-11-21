@@ -167,6 +167,7 @@ export async function generateSystemDesignCoachFeedback(
     strengths,
     weaknesses,
     resources = [],
+    topicMistakePatterns
   } = args;
 
   const systemPrompt = `
@@ -178,6 +179,15 @@ You receive:
 - An auto-evaluated score (0–10).
 - Lists of strengths and weaknesses.
 - Relevant learning resources (if available).
+
+You will also receive topicMistakePatterns with:
+- sessionsConsidered: how many recent sessions for this topic were analyzed
+- recurringMistakes: an array of { mistake, count }
+
+If recurringMistakes is non-empty, you MUST:
+- explicitly call out these consistent patterns across sessions
+- explain how to fix the underlying reasoning, not just this one answer.
+- tie your advice to these recurring mistakes where relevant.
 
 Your job:
 1. Summarize where the candidate stands for THIS answer in 2–3 sentences.
@@ -205,30 +215,32 @@ Output STRICTLY as JSON with the following shape:
 If you cannot compute a field, still include it but keep it short and honest.
   `.trim();
 
-  const resourcesText =
+  const resourcesSummary =
     resources.length > 0
-      ? `\n\nRELEVANT LEARNING RESOURCES:\n${resources
-          .map(
-            (r) =>
-              `- ID: ${r.id}\n  Title: ${r.title}\n  URL: ${r.url || 'N/A'}\n  Content preview: ${r.content.substring(0, 200)}...`
-          )
-          .join('\n\n')}`
-      : '';
+      ? resources.map((r) => ({
+          id: r.id,
+          title: r.title,
+          url: r.url ?? null,
+          contentPreview:
+            typeof (r as any).content === 'string'
+              ? (r as any).content.substring(0, 200)
+              : '',
+        }))
+      : [];
 
-  const userPrompt = `
-SYSTEM DESIGN QUESTION:
-${question}
+  const userPayload = {
+    topic,
+    difficulty,
+    question,
+    answer,
+    score,
+    strengths,
+    weaknesses,
+    resources: resourcesSummary,
+    topicMistakePatterns,
+  };
 
-CANDIDATE ANSWER:
-${answer}
-
-AUTO-EVALUATION:
-- Topic: ${topic}
-- Difficulty: ${difficulty}
-- Score: ${score} / 10
-- Strengths: ${strengths.join('; ') || 'None recorded'}
-- Weaknesses: ${weaknesses.join('; ') || 'None recorded'}${resourcesText}
-  `.trim();
+  const userPrompt = JSON.stringify(userPayload, null, 2);
 
   try {
     const payload = await responsesClient.openAiClientJsonResponse<CoachFeedbackResponse>({
