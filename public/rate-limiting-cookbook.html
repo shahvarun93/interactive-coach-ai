@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Rate Limiting Cookbook</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+      }
+      h1, h2, h3 { margin-top: 1.2rem; }
+      code { background: #f4f4f4; padding: 0 0.25rem; border-radius: 3px; }
+      ul { padding-left: 1.2rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Rate Limiting Cookbook</h1>
+
+    <h2>Common Algorithms</h2>
+    <ul>
+      <li><strong>Fixed window</strong> – simple, but edge bunched at boundaries.</li>
+      <li><strong>Sliding window</strong> – smoother, more precise.</li>
+      <li><strong>Token bucket / leaky bucket</strong> – burst-friendly, steady average rate.</li>
+    </ul>
+
+    <h2>Where to Enforce Limits</h2>
+    <ul>
+      <li>API gateway / edge proxy.</li>
+      <li>Per-user, per-IP, per-API-key, or per-tenant.</li>
+      <li>Client-side guards for UX (optional, not security).</li>
+    </ul>
+
+    <h2>State & Storage</h2>
+    <ul>
+      <li>In-memory for single node; Redis or similar for distributed limits.</li>
+      <li>Key design: <code>rate:{scope}:{id}</code> (e.g., <code>rate:user:123</code>).</li>
+    </ul>
+
+    <h2>Interview Checklist</h2>
+    <ul>
+      <li>Clarify what is limited (requests/sec? per minute? per feature?).</li>
+      <li>Explain algorithm and why it fits the use case.</li>
+      <li>Discuss distributed coordination and race conditions.</li>
+      <li>Consider abuse patterns and how to monitor.</li>
+    </ul>
+  </body>
+</html>

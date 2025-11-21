@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Designing a Global Feed</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+      }
+      h1, h2, h3 { margin-top: 1.2rem; }
+      code { background: #f4f4f4; padding: 0 0.25rem; border-radius: 3px; }
+      ul { padding-left: 1.2rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Designing a Global Feed</h1>
+
+    <h2>Feed Models</h2>
+    <ul>
+      <li><strong>Fan-out on write</strong>: push to follower feeds at write time.</li>
+      <li><strong>Fan-out on read</strong>: compute feed on demand at read time.</li>
+      <li><strong>Hybrid</strong>: precompute for heavy users, compute on read for light users.</li>
+    </ul>
+
+    <h2>Key Concerns</h2>
+    <ul>
+      <li>Latency vs freshness vs cost of recomputation.</li>
+      <li>Personalization vs simple chronological ordering.</li>
+      <li>Hot users / celebrities and write amplification.</li>
+    </ul>
+
+    <h2>Data Model Sketch</h2>
+    <ul>
+      <li><code>users</code>, <code>follows</code>, <code>posts</code>, <code>feeds</code> (per-user fan-out).</li>
+      <li>Indexes on <code>follows(follower_id)</code>, <code>posts(author_id, created_at)</code>.</li>
+    </ul>
+
+    <h2>Interview Checklist</h2>
+    <ul>
+      <li>Clarify: global vs per-user vs topic feeds.</li>
+      <li>Explain which fan-out strategy you choose and why.</li>
+      <li>Discuss pagination, ranking, and caching.</li>
+      <li>Consider backfill, deletions, and abuse / spam.</li>
+    </ul>
+  </body>
+</html>

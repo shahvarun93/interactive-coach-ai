@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Messaging Queue Trade-offs</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+      }
+      h1, h2, h3 { margin-top: 1.2rem; }
+      code { background: #f4f4f4; padding: 0 0.25rem; border-radius: 3px; }
+      ul { padding-left: 1.2rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Messaging Queue Trade-offs</h1>
+
+    <h2>Why Use Queues?</h2>
+    <ul>
+      <li>Decouple producers and consumers.</li>
+      <li>Smooth spikes (buffer work), implement backpressure.</li>
+      <li>Retry and dead-letter handling for failures.</li>
+    </ul>
+
+    <h2>Delivery Semantics</h2>
+    <ul>
+      <li><strong>At-most-once</strong>: no duplicates, but messages may be lost.</li>
+      <li><strong>At-least-once</strong>: no loss, but duplicates possible (most common).</li>
+      <li><strong>Exactly-once</strong>: often simulated via idempotent consumers.</li>
+    </ul>
+
+    <h2>Ordering & Partitioning</h2>
+    <ul>
+      <li>Per-partition ordering vs global ordering trade-offs.</li>
+      <li>Keyed partitioning (e.g., by user_id) to maintain per-entity order.</li>
+    </ul>
+
+    <h2>Interview Checklist</h2>
+    <ul>
+      <li>Explain why a queue is needed (what problem it solves).</li>
+      <li>Describe delivery semantics and how consumers handle duplicates.</li>
+      <li>Cover scaling (more partitions / consumers), and backpressure.</li>
+      <li>Mention dead-letter queues and monitoring.</li>
+    </ul>
+  </body>
+</html>

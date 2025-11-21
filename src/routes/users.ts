@@ -55,4 +55,18 @@ router.get("/:email/system-design-stats", async (req, res) => {
   }
 });
 
+router.get("/:email/system-design-study-plan", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const plan = await usersService.createStudyPlanForUserByEmail(email);
+    res.json(plan);
+  } catch (e: any) {
+    console.error("Error generating study plan:", e);
+    if (e.message === "USER_NOT_FOUND") {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.status(500).json({ error: "Failed to generate study plan" });
+  }
+});
+
 export default router;

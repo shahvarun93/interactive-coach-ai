@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Payments Consistency Notes</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+      }
+      h1, h2, h3 { margin-top: 1.2rem; }
+      code { background: #f4f4f4; padding: 0 0.25rem; border-radius: 3px; }
+      ul { padding-left: 1.2rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Payments Consistency Notes</h1>
+
+    <h2>Key Requirements</h2>
+    <ul>
+      <li>No double-charging, no lost charges.</li>
+      <li>Strong auditability and traceability.</li>
+      <li>Eventual consistency acceptable in some views, not in ledger.</li>
+    </ul>
+
+    <h2>Patterns</h2>
+    <ul>
+      <li><strong>Idempotency keys</strong> for payment requests.</li>
+      <li><strong>Transactional outbox</strong> for integrating with external systems.</li>
+      <li>Separate <strong>ledger</strong> (immutable) from <strong>read models</strong>.</li>
+    </ul>
+
+    <h2>Failure Scenarios</h2>
+    <ul>
+      <li>Payment provider times out but charge went through.</li>
+      <li>Retries causing duplicate callbacks.</li>
+      <li>Reconciliation with provider reports.</li>
+    </ul>
+
+    <h2>Interview Checklist</h2>
+    <ul>
+      <li>Clarify money flows and who is system of record.</li>
+      <li>Discuss idempotency and how to avoid duplicate charges.</li>
+      <li>Mention reconciliation and audits.</li>
+      <li>Be explicit about where strong vs eventual consistency is acceptable.</li>
+    </ul>
+  </body>
+</html>

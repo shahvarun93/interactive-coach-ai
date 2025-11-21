@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Observability for System Design Interviews</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+      }
+      h1, h2, h3 { margin-top: 1.2rem; }
+      code { background: #f4f4f4; padding: 0 0.25rem; border-radius: 3px; }
+      ul { padding-left: 1.2rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Observability for System Design Interviews</h1>
+
+    <h2>Three Pillars</h2>
+    <ul>
+      <li><strong>Logs</strong>: structured, queryable, correlated by request ID.</li>
+      <li><strong>Metrics</strong>: request rate, latency, error rate, saturation.</li>
+      <li><strong>Traces</strong>: end-to-end view across services.</li>
+    </ul>
+
+    <h2>Key Metrics</h2>
+    <ul>
+      <li>SLIs/SLOs: availability, p95/p99 latency, error rates.</li>
+      <li>Per-service dashboards and alerts.</li>
+    </ul>
+
+    <h2>Design Checklist</h2>
+    <ul>
+      <li>Add request IDs / correlation IDs at the edge.</li>
+      <li>Define critical paths and instrument them first.</li>
+      <li>Plan for alerting on symptoms, not just causes.</li>
+    </ul>
+
+    <h2>Interview Checklist</h2>
+    <ul>
+      <li>Mention where you’d add metrics, logs, and traces.</li>
+      <li>Explain how you’d debug a high latency or error spike.</li>
+      <li>Call out how observability helps with capacity planning and incident response.</li>
+    </ul>
+  </body>
+</html>

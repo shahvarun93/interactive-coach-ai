@@ -12,6 +12,7 @@ import { GeneratedSDQuestion } from "../interfaces/GeneratedSDQuestion";
 import { SystemDesignCoachFeedback } from "../interfaces/SystemDesignCoach";
 import { CoachFeedbackArgs } from "../interfaces/CoachFeedbackArgs";
 import { UserSystemDesignStats } from "../interfaces/UserSDStats";
+import { SystemDesignStudyPlan } from "../interfaces/SystemDesignStudyPlan";
 
 const QuestionResponseSchema = z.object({
   question: z.string().min(1),
@@ -49,6 +50,24 @@ const CoachFeedbackSchema = z.object({
     )
     .optional(),
 });
+
+const StudyPlanSchema = z.object({
+  profileSummary: z.string(),
+  focusTopics: z.array(z.string()).default([]),
+  recommendedSequence: z
+    .array(
+      z.object({
+        step: z.number(),
+        topic: z.string(),
+        difficulty: z.enum(["easy", "medium", "hard"]),
+        goals: z.array(z.string()).default([]),
+      })
+    )
+    .default([]),
+  practiceSuggestions: z.array(z.string()).default([]),
+});
+
+export type StudyPlanResponse = z.infer<typeof StudyPlanSchema>;
 
 type CoachFeedbackResponse = z.infer<typeof CoachFeedbackSchema>;
 const NextTopicSchema = z.object({
@@ -361,4 +380,77 @@ Return strict JSON with topic, difficulty, reason.
     ],
     schema: NextTopicSchema,
   });
+}
+
+export async function generateSystemDesignStudyPlan(args: {
+  stats: any; // your UserSystemDesignStats type if you have it
+  resourcesByTopic: Record<
+    string,
+    { id: string; title: string; url: string | null }[]
+  >;
+}) {
+  const { stats, resourcesByTopic } = args;
+
+  const systemPrompt = `
+You are an experienced system design tutor.
+
+You will receive:
+- aggregate stats about a candidate's system design practice (overall level, topics, scores),
+- lists of weak and strong topics,
+- and a small set of recommended resources per topic (each resource has a title and url).
+
+Your job:
+1. Summarize the candidate's current profile in 2–4 sentences.
+2. Choose 1–3 "focusTopics" that will give the best leverage for improvement.
+3. Build a short "recommendedSequence" of study steps (3–6 steps), where each step has:
+   - step: number
+   - topic: string
+   - difficulty: "easy" | "medium" | "hard"
+   - goals: concrete learning goals for that step.
+4. Provide a small list of "practiceSuggestions" with concrete actions (e.g. how many problems to solve, what to pay attention to).
+
+Important rules about resources:
+- You MAY reference resources from resourcesByTopic in practiceSuggestions.
+- If you reference a resource, you MUST include both its title and its exact url
+  from the input. Use the pattern: "Review \\"<title>\\" (<url>) ...".
+- Do NOT invent new resources or fake URLs; only use resources actually present in resourcesByTopic.
+
+Output STRICTLY as JSON following this schema:
+{
+  "profileSummary": string,
+  "focusTopics": string[],
+  "recommendedSequence": [
+    {
+      "step": number,
+      "topic": string,
+      "difficulty": "easy" | "medium" | "hard",
+      "goals": string[]
+    }
+  ],
+  "practiceSuggestions": string[]
+}
+`.trim();
+
+  const userPayload = {
+    stats,
+    resourcesByTopic,
+  };
+
+  const result =
+    await responsesClient.openAiClientJsonResponse<StudyPlanResponse>({
+      model: "gpt-4.1-mini",
+      temperature: 0.4,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: JSON.stringify(userPayload, null, 2) },
+      ],
+      schema: StudyPlanSchema,
+    });
+
+  return {
+    profileSummary: result.profileSummary,
+    focusTopics: result.focusTopics ?? [],
+    recommendedSequence: result.recommendedSequence ?? [],
+    practiceSuggestions: result.practiceSuggestions ?? [],
+  } as SystemDesignStudyPlan;
 }

@@ -13,8 +13,9 @@ import {
   Difficulty,
 } from "../interfaces/UserSDStats";
 import { SystemDesignCoachResponse } from "../interfaces/SystemDesignCoach";
-import * as sdResourcesService from "./sd-resources.service";
+import * as systemDesignResourcesService from "./sd-resources.service";
 import { TopicMistakePatterns } from "../interfaces/TopicMistakes";
+import { SystemDesignStudyPlan } from "../interfaces/SystemDesignStudyPlan";
 
 export async function submitSystemDesignAnswer(
   sessionId: string,
@@ -175,7 +176,7 @@ export async function createCoachFeedbackForSession(
   );
 
   // Fetch relevant resources for the topic
-  const resources = await sdResourcesService.findResourcesForTopic(
+  const resources = await systemDesignResourcesService.findResourcesForTopic(
     normalizedTopic,
     5
   );
@@ -434,8 +435,38 @@ export async function buildTopicMistakePatternsForUser(
   };
 }
 
+export async function getSystemDesignPlanForUser(
+  userId: string
+): Promise<SystemDesignStudyPlan> {
+  const stats = await getUserSystemDesignStats(userId);
+  // stats already has: overallLevel, weakTopics, strongTopics, topics[]
+
+  // Pull a few resources for each weak topic
+  const resourcesByTopic: Record<string, { id: string; title: string; url: string | null }[]> = {};
+
+  for (const topic of stats.weakTopics || []) {
+    const normalizedTopic = topic; // or reuse your normalizeTopic if needed
+    const resources = await systemDesignResourcesService.findResourcesForTopic(normalizedTopic, 3);
+    resourcesByTopic[topic] = resources.map((r: any) => ({
+      id: r.id,
+      title: r.title,
+      url: r.url ?? null,
+    }));
+  }
+
+  const plan = await systemDesignAiService.generateSystemDesignStudyPlan({
+    stats,
+    resourcesByTopic,
+  });
+
+  return plan;
+}
+
+
 function labelForAverageScore(avg: number): TopicLabel {
   if (avg >= 7) return "strong";
   if (avg >= 5) return "average";
   return "weak";
 }
+
+

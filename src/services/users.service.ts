@@ -33,3 +33,12 @@ export async function getSystemDesignStatsForUserEmail(
   const stats = await systemDesignService.getUserSystemDesignStats(user.id);
   return stats;
 }
+
+export async function createStudyPlanForUserByEmail(email: string) {
+  const user = await usersDao.findUserByEmail(email);
+  if (!user) {
+    throw new Error("USER_NOT_FOUND");
+  }
+
+  return await systemDesignService.getSystemDesignPlanForUser(user.id);
+}

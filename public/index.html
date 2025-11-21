@@ -152,6 +152,20 @@
       </div>
     </div>
 
+    <div class="section">
+      <h2>Study Plan</h2>
+      <button id="btn-study-plan">Generate Study Plan</button>
+      <div id="study-plan-summary" class="small">No study plan generated yet.</div>
+      <div style="margin-top: 0.5rem">
+        <span class="label">Focus topics:</span>
+        <span id="study-plan-focus-topics" class="small">-</span>
+      </div>
+      <div style="margin-top: 0.5rem">
+        <span class="label">Practice suggestions:</span>
+        <ul id="study-plan-practice"></ul>
+      </div>
+    </div>
+
     <script>
       const SD_BASE_URL = "/api/v1/system-design";
       const USERS_BASE_URL = "/api/v1/users";
@@ -429,6 +443,85 @@
         }
       }
 
+      async function loadStudyPlan() {
+        const email = text("email").value.trim();
+        if (!email) {
+          alert("Please enter your email.");
+          return;
+        }
+
+        setStatus("Generating study plan...");
+        try {
+          const res = await fetch(
+            `${USERS_BASE_URL}/${encodeURIComponent(email)}/system-design-study-plan`
+          );
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${res.status}`);
+          }
+          const plan = await res.json();
+
+          // Summary
+          text("study-plan-summary").textContent =
+            plan.profileSummary || "No study plan generated yet.";
+
+          // Focus topics
+          const focus =
+            plan.focusTopics && plan.focusTopics.length
+              ? plan.focusTopics.join(", ")
+              : "-";
+          text("study-plan-focus-topics").textContent = focus;
+
+          // Practice suggestions with hyperlink rendering
+          const practiceList = document.getElementById("study-plan-practice");
+          practiceList.innerHTML = "";
+          (plan.practiceSuggestions || []).forEach((s) => {
+            renderSuggestionWithLink(practiceList, s);
+          });
+
+          setStatus("Study plan generated.");
+        } catch (e) {
+          console.error(e);
+          setStatus("Failed to generate study plan.");
+          alert("Study plan error: " + e.message);
+        }
+      }
+
+      function renderSuggestionWithLink(listElement, suggestion) {
+        const li = document.createElement("li");
+
+        // Match: some text "Title" (URL) rest of text
+        const regex = /(.*)"([^"]+)"\s*\(([^)]+)\)(.*)/;
+        const match = suggestion.match(regex);
+
+        if (match) {
+          const [, before, title, url, after] = match;
+
+          if (before.trim()) {
+            li.appendChild(document.createTextNode(before + " "));
+          }
+
+          const a = document.createElement("a");
+          a.href = url;
+          a.textContent = title;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          li.appendChild(a);
+
+          if (after.trim()) {
+            li.appendChild(document.createTextNode(after));
+          }
+        } else {
+          // Fallback: no pattern, just render plain text
+          li.textContent = suggestion;
+        }
+
+        listElement.appendChild(li);
+      }
+            
+      document
+        .getElementById("btn-study-plan")
+        .addEventListener("click", loadStudyPlan);
       const emailInput = document.getElementById("email");
 
       document
