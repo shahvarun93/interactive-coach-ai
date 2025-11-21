@@ -286,6 +286,18 @@ Return ONLY valid <format> in this exact shape:
   ...
 }
 No extra keys. No markdown. No explanation outside the format.
+=============================================================
+
+Zod library significance:
+Why Zod is needed here (super important)
+
+Zod is like your TypeScript compiler but for runtime AI outputs. TS only checks your code at build time. Zod checks the model output at runtime.
+LLMs are probabilistic. Even if you say “return JSON,” they might:
+	•	add extra keys
+	•	omit required fields
+	•	return a string instead of array
+	•	return "score": "9" as string not number
+	•	wrap JSON in markdown fences
 
 
 ====================ChatGPT============================
@@ -307,3 +319,15 @@ So a simple mental model:
 	4.	Your new message (user prompt in the text box)
 
 ====================ChatGPT===============================
+
+1) Embeddings are for retrieval, not for the model to “read”
+An embedding is a long array of numbers like: [0.012, -0.44, 1.28, ...]
+LLMs don’t gain anything by seeing that raw vector. It’s not human-readable, and the model can’t meaningfully “reason” over thousands of floats.
+So the correct flow is:
+	1.	Embed text into vectors
+	2.	Search vectors in Postgres/pgvector to find relevant docs
+	3.	Pass the retrieved text (titles/snippets) into the prompt
+	4.	LLM uses those notes to coach
+That’s RAG.
+Vectors stay in the DB layer. Text goes into the prompt.
+

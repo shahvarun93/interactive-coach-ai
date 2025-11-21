@@ -1,4 +1,11 @@
 // src/services/systemDesignAI.service.ts
+/*
+This file is the AI brain layer for SD Co-Pilot.
+It has 3 jobs:
+	1.	Generate a system design question
+	2.	Generate coaching feedback after user answers + evaluation
+	3.	Suggest the next topic & difficulty based on user stats (agent policy)
+*/
 import { z } from 'zod';
 import { responsesClient } from '../ai/openaiClient';
 import { GeneratedSDQuestion } from '../interfaces/GeneratedSDQuestion';  
@@ -33,7 +40,6 @@ const CoachFeedbackSchema = z.object({
     .optional(),
 });
 
-type QuestionResponse = z.infer<typeof QuestionResponseSchema>;
 type CoachFeedbackResponse = z.infer<typeof CoachFeedbackSchema>;
 const NextTopicSchema = z.object({
   topic: z.string(),
@@ -227,7 +233,7 @@ AUTO-EVALUATION:
   try {
     const payload = await responsesClient.openAiClientJsonResponse<CoachFeedbackResponse>({
       model: 'gpt-4.1-mini',
-      temperature: 0.4,
+      temperature: 0.4, //	•	Coaching should be consistent and grounded, not creative. 	•	Low temp = less hallucination.
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -288,7 +294,7 @@ Return strict JSON with topic, difficulty, reason.
 
   return responsesClient.openAiClientJsonResponse({
     model: 'gpt-4.1-mini',
-    temperature: 0.3,
+    temperature: 0.3, // Topic selection should be stable policy, not random creativity.
     messages: [
       { role: 'system', content: systemPrompt },
       {

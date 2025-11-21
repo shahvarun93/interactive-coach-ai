@@ -3,6 +3,11 @@ import type {
   Response,
   ResponseCreateParams,
 } from 'openai/resources/responses/responses';
+/* Zod is in openAiClient.ts to make the AI output reliable and type-safe instead of “whatever the model felt like returning.” 
+Think of it as a strict bouncer at the door: 
+if the JSON isn’t exactly what we expect, 
+we reject it early with a clear error rather than letting bugs leak through the app.
+*/
 import { z } from 'zod';
 
 export type Message = {
@@ -26,6 +31,16 @@ function toResponseInput(messages: Message[]): ResponseCreateParams['input'] {
   })) as ResponseCreateParams['input'];
 }
 
+/*
+This function walks the output:
+	•	finds the first output_text
+	•	returns its trimmed text
+	•	if none exists → throws an error
+
+    Why we did this:
+    The Responses API can output other things too (tool calls, audio, etc).
+    So we must explicitly pick the text part.
+*/
 function extractText(response: Response): string {
   for (const item of response.output ?? []) {
     if ('content' in item && Array.isArray((item as { content?: unknown }).content)) {
@@ -39,6 +54,15 @@ function extractText(response: Response): string {
   throw new Error('OpenAI response did not contain output_text content');
 }
 
+/*
+Flow:
+	1.	Call OpenAI with system+user messages.
+	2.	Extract raw output text.
+	3.	JSON.parse(raw) → turn it into an object.
+	4.	Zod validates it using schema.parse(...).
+	5.	If valid → return typed object T
+	6.	If invalid → throw a clear error
+*/
 async function openAiClientJsonResponse<T>({
   model = 'gpt-4.1-mini',
   messages,
@@ -46,7 +70,7 @@ async function openAiClientJsonResponse<T>({
   temperature,
 }: {
   model?: string;
-  messages: Message[];
+  messages: Message[]; // system and user prompt
   schema: z.ZodSchema<T>;
   temperature?: number;
 }): Promise<T> {
@@ -55,7 +79,6 @@ async function openAiClientJsonResponse<T>({
     input: toResponseInput(messages),
     temperature,
   });
-
   const raw = extractText(response);
 
   try {

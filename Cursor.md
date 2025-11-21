@@ -23,3 +23,4 @@ For TypeScript errors, you can:
 	•	Put your cursor on the red underline
 	•	Ask Cursor directly:
 “Fix this TS error, but keep the function behavior unchanged.”
+

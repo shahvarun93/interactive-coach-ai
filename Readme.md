@@ -103,3 +103,13 @@ Core idea:
 	•	GET /system-design/user/:userId/stats → global stats, hooks ready for topic-based stats
 	•	POST /system-design/coach
 	http://localhost:3000/practice -> UI interaction
+
+
+Your coach call has:
+	•	role: “senior SD coach”
+	•	goal: give feedback + next practice
+	•	memory: evaluation + stats + RAG notes
+	•	policy: weak/strong topic steering
+
+That’s already an agentic workflow.
+
