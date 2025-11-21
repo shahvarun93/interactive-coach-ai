@@ -135,6 +135,14 @@
         <ul id="coach-next"></ul>
       </div>
       <div style="margin-top: 0.5rem">
+        <span class="label">Consistent patterns I notice:</span>
+        <ul id="coach-patterns"></ul>
+      </div>
+      <div style="margin-top: 0.5rem">
+        <span class="label">How to fix your mental model:</span>
+        <ul id="coach-mental-model"></ul>
+      </div>
+      <div style="margin-top: 0.5rem">
         <span class="label">Next practice suggestion:</span>
         <div id="coach-next-practice" class="small"></div>
       </div>
@@ -285,6 +293,26 @@
             li.textContent = item;
             list("coach-next").appendChild(li);
           });
+
+          // Consistent patterns across sessions
+          list("coach-patterns").innerHTML = "";
+          if (coach.consistentPatterns && coach.consistentPatterns.length > 0) {
+            coach.consistentPatterns.forEach((pattern) => {
+              const li = document.createElement("li");
+              li.textContent = pattern;
+              list("coach-patterns").appendChild(li);
+            });
+          }
+
+          // Mental model fixes
+          list("coach-mental-model").innerHTML = "";
+          if (coach.mentalModelFix && coach.mentalModelFix.length > 0) {
+            coach.mentalModelFix.forEach((fix) => {
+              const li = document.createElement("li");
+              li.textContent = fix;
+              list("coach-mental-model").appendChild(li);
+            });
+          }
 
           if (coach.nextPracticeSuggestion) {
             const nps = coach.nextPracticeSuggestion;
