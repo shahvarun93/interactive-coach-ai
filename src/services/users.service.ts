@@ -34,7 +34,7 @@ export async function getSystemDesignStatsForUserEmail(
   return stats;
 }
 
-export async function createStudyPlanForUserByEmail(email: string) {
+export async function getStudyPlanForUserByEmail(email: string) {
   const user = await usersDao.findUserByEmail(email);
   if (!user) {
     throw new Error("USER_NOT_FOUND");

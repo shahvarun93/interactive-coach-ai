@@ -14,6 +14,7 @@ import { CoachFeedbackArgs } from "../interfaces/CoachFeedbackArgs";
 import { UserSystemDesignStats } from "../interfaces/UserSDStats";
 import { SystemDesignStudyPlan } from "../interfaces/SystemDesignStudyPlan";
 import * as sdResourceDao from "../dao/sd-resources.dao";
+import { SDResource } from "../interfaces/SDResource";
 
 const QuestionResponseSchema = z.object({
   question: z.string().min(1),
@@ -205,11 +206,13 @@ export async function generateSystemDesignCoachFeedback(
     weaknesses: weaknesses ?? [],
   });
   const ragContext = ragResources
-  .map((r, idx) => {
-    const snippet = r.content ?? "";
-    return `Resource #${idx + 1}: ${r.title}\n${snippet}\nURL: ${r.url ?? "N/A"}`;
-  })
-  .join("\n\n");
+    .map((r, idx) => {
+      const snippet = r.content ?? "";
+      return `Resource #${idx + 1}: ${r.title}\n${snippet}\nURL: ${
+        r.url ?? "N/A"
+      }`;
+    })
+    .join("\n\n");
 
   const systemPrompt = `
 You are an experienced backend and system design interview coach.
@@ -307,7 +310,7 @@ Rules:
     weaknesses,
     resources: resourcesSummary,
     topicMistakePatterns,
-    ragContext
+    ragContext,
   };
 
   const userPrompt = JSON.stringify(userPayload, null, 2);
@@ -492,4 +495,23 @@ async function getRagResourcesForSession(session: {
     queryEmbedding,
     limit: 3,
   });
+}
+
+export async function getRagResourcesForTopic(
+  queryText: string,
+  normalizedTopic: string
+): Promise<SDResource[]> {
+  // 1) Create embedding for this query
+  const queryEmbedding = await embedText(queryText);
+
+  // 2) Semantic search in sd_resources using pgvector
+  const resources: SDResource[] =
+    await sdResourceDao.findRelevantResourcesByEmbedding({
+      topic: normalizedTopic,
+      queryEmbedding,
+      limit: 3,
+    });
+
+  // 3) Map to the simple shape expected by the AI service
+  return resources;
 }

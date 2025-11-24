@@ -58,7 +58,7 @@ router.get("/:email/system-design-stats", async (req, res) => {
 router.get("/:email/system-design-study-plan", async (req, res) => {
   try {
     const { email } = req.params;
-    const plan = await usersService.createStudyPlanForUserByEmail(email);
+    const plan = await usersService.getStudyPlanForUserByEmail(email);
     res.json(plan);
   } catch (e: any) {
     console.error("Error generating study plan:", e);

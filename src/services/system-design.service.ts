@@ -16,6 +16,7 @@ import { SystemDesignCoachResponse } from "../interfaces/SystemDesignCoach";
 import * as systemDesignResourcesService from "./sd-resources.service";
 import { TopicMistakePatterns } from "../interfaces/TopicMistakes";
 import { SystemDesignStudyPlan } from "../interfaces/SystemDesignStudyPlan";
+import { SDResource } from "../interfaces/SDResource";
 
 export async function submitSystemDesignAnswer(
   sessionId: string,
@@ -442,16 +443,55 @@ export async function getSystemDesignPlanForUser(
   // stats already has: overallLevel, weakTopics, strongTopics, topics[]
 
   // Pull a few resources for each weak topic
-  const resourcesByTopic: Record<string, { id: string; title: string; url: string | null }[]> = {};
+    // Pull a few *semantically relevant* resources for each weak topic (RAG)
+    const resourcesByTopic: Record<
+    string,
+    { id: string; title: string; url: string | null }[]
+  > = {};
 
   for (const topic of stats.weakTopics || []) {
-    const normalizedTopic = topic; // or reuse your normalizeTopic if needed
-    const resources = await systemDesignResourcesService.findResourcesForTopic(normalizedTopic, 3);
-    resourcesByTopic[topic] = resources.map((r: any) => ({
-      id: r.id,
-      title: r.title,
-      url: r.url ?? null,
-    }));
+    const normalizedTopic = topic; // reuse your topic normalization if needed
+
+    // Build a short query text representing the user's situation for this topic
+    const queryText = [
+      `System design interview notes about ${normalizedTopic}.`,
+      `User overall level: ${stats.overallLevel}.`,
+      stats.averageScore
+        ? `User average score: ${stats.averageScore.toFixed(1)}.`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    try {
+
+      // 2) Semantic search in sd_resources using pgvector
+      const resources: SDResource[] = await systemDesignAiService.getRagResourcesForTopic(queryText, normalizedTopic);
+      
+      // 3) Map to the simple shape expected by the AI service
+      resourcesByTopic[topic] = resources.map((r) => ({
+        id: r.id,
+        title: r.title,
+        url: r.url ?? null,
+      }));
+    } catch (err) {
+      console.warn(
+        "[study-plan RAG] Failed for topic",
+        topic,
+        (err as Error).message
+      );
+      // Optional fallback: if RAG fails, you can still use simple topic-based resources
+      const fallbackResources =
+        await systemDesignResourcesService.findResourcesForTopic(
+          normalizedTopic,
+          3
+        );
+      resourcesByTopic[topic] = fallbackResources.map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        url: r.url ?? null,
+      }));
+    }
   }
 
   const plan = await systemDesignAiService.generateSystemDesignStudyPlan({
