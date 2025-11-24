@@ -17,6 +17,7 @@ import * as systemDesignResourcesService from "./sd-resources.service";
 import { TopicMistakePatterns } from "../interfaces/TopicMistakes";
 import { SystemDesignStudyPlan } from "../interfaces/SystemDesignStudyPlan";
 import { SDResource } from "../interfaces/SDResource";
+import { CACHE_DEBUG, cacheGet, cacheSet } from "../infra/redis";
 
 export async function submitSystemDesignAnswer(
   sessionId: string,
@@ -102,6 +103,7 @@ export async function getUserStats(
   return getUserSystemDesignStats(userId);
 }
 
+// cache the coach feedback per (session) so re-clicking “Get Coach Feedback” doesn’t call OpenAI again.
 export async function createCoachFeedbackForSession(
   email: string,
   sessionId: string
@@ -114,6 +116,30 @@ export async function createCoachFeedbackForSession(
   const session = await systemDesignDao.findSystemDesignSessionById(sessionId);
   if (!session || session.user_id !== user.id) {
     throw new Error("SESSION_NOT_FOUND");
+  }
+
+  // 🔹 Coach cache: key per session + score (so if you change the answer/score, key changes)
+  const updatedAtKeyPart = session.updated_at ?? "no-updated-at";
+
+  const coachCacheKey = `sd:coach:${session.id}:${session.score}:${updatedAtKeyPart}`;
+
+  const cached = await cacheGet<SystemDesignCoachResponse>(coachCacheKey);
+  if (cached) {
+    if (CACHE_DEBUG) {
+      console.log("[coach] cache HIT", {
+        sessionId: session.id,
+        score: session.score,
+        updatedAt: updatedAtKeyPart,
+      });
+    }
+    return cached;
+  }
+  if (CACHE_DEBUG) {
+    console.log("[coach] cache MISS", {
+      sessionId: session.id,
+      score: session.score,
+      updatedAt: updatedAtKeyPart,
+    });
   }
 
   // ✅ Use prompt instead of question (most likely your column)
@@ -139,7 +165,8 @@ export async function createCoachFeedbackForSession(
   // ✅ Normalize weaknesses similarly
   const weaknessesArray: string[] = Array.isArray(session.weaknesses)
     ? session.weaknesses
-    : typeof session.weaknesses === "string" && session.weaknesses.startsWith("[")
+    : typeof session.weaknesses === "string" &&
+      session.weaknesses.startsWith("[")
     ? JSON.parse(session.weaknesses)
     : session.weaknesses
     ? [session.weaknesses]
@@ -153,19 +180,16 @@ export async function createCoachFeedbackForSession(
     "rate-limiting": "rate-limiting",
     "rate limiting": "rate-limiting",
     "rate-limit": "rate-limiting",
-    "queues": "messaging",
-    "queue": "messaging",
+    queues: "messaging",
+    queue: "messaging",
     "message-queues": "messaging",
     "message queues": "messaging",
-    "feed": "feeds",
+    feed: "feeds",
     "news-feed": "feeds",
     "news feed": "feeds",
   };
   function normalizeTopic(t: string) {
-    const key = (t || "unknown")
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "-");
+    const key = (t || "unknown").trim().toLowerCase().replace(/\s+/g, "-");
     return TOPIC_ALIASES[key] || key;
   }
   const normalizedTopic = normalizeTopic(topic);
@@ -192,7 +216,7 @@ export async function createCoachFeedbackForSession(
       strengths: strengthsArray,
       weaknesses: weaknessesArray,
       resources,
-      topicMistakePatterns
+      topicMistakePatterns,
     });
 
   const resourcesPayload = resources.map((r: any) => ({
@@ -204,7 +228,7 @@ export async function createCoachFeedbackForSession(
       typeof r.content === "string" ? r.content.slice(0, 160) + "..." : "",
   }));
 
-  return {
+  const response = {
     sessionId: session.id,
     topic,
     difficulty,
@@ -212,11 +236,28 @@ export async function createCoachFeedbackForSession(
     coachFeedback,
     resources: resourcesPayload,
   };
+  await cacheSet<SystemDesignCoachResponse>(coachCacheKey, response);
+  if (CACHE_DEBUG) {
+    console.log("[coach] cache SET", {
+      sessionId: session.id,
+      key: coachCacheKey,
+    });
+  }
+  return response;
 }
 
 export async function getUserSystemDesignStats(
   userId: string
 ): Promise<UserSystemDesignStats> {
+  const cacheKey = `sd:stats:${userId}`;
+
+  const cached = await cacheGet<UserSystemDesignStats>(cacheKey);
+  if (cached) {
+    // Optional logging
+    // console.log("[stats] cache hit for", userId);
+    return cached;
+  }
+
   const sessions = await systemDesignDao.findSystemDesignSessionsForUser(
     userId
   );
@@ -322,8 +363,9 @@ export async function chooseNextTopicAndDifficultyForUser(
 
   if (stats.answeredSessions >= 5) {
     try {
-      const aiSuggestion =
-        await systemDesignAiService.aiSuggestNextTopic(stats);
+      const aiSuggestion = await systemDesignAiService.aiSuggestNextTopic(
+        stats
+      );
       return {
         topic: aiSuggestion.topic,
         difficulty: aiSuggestion.difficulty,
@@ -407,13 +449,16 @@ export async function buildTopicMistakePatternsForUser(
 
     if (Array.isArray(s.weaknesses)) {
       weaknesses = s.weaknesses;
-    } else if (typeof s.weaknesses === 'string' && s.weaknesses.startsWith('[')) {
+    } else if (
+      typeof s.weaknesses === "string" &&
+      s.weaknesses.startsWith("[")
+    ) {
       try {
         weaknesses = JSON.parse(s.weaknesses);
       } catch {
         weaknesses = [s.weaknesses];
       }
-    } else if (typeof s.weaknesses === 'string' && s.weaknesses.trim()) {
+    } else if (typeof s.weaknesses === "string" && s.weaknesses.trim()) {
       weaknesses = [s.weaknesses];
     }
 
@@ -442,9 +487,28 @@ export async function getSystemDesignPlanForUser(
   const stats = await getUserSystemDesignStats(userId);
   // stats already has: overallLevel, weakTopics, strongTopics, topics[]
 
+  // 2) Use lastSessionAt as part of the cache key
+  const lastKeyPart = stats.lastSessionAt
+    ? new Date(stats.lastSessionAt).getTime() // or stats.lastSessionAt as-is
+    : "no-sessions";
+
+  const cacheKey = `sd:plan:${userId}:${lastKeyPart}`;
+
+  const cachedPlan = await cacheGet<SystemDesignStudyPlan>(cacheKey);
+  if (cachedPlan) {
+    if (CACHE_DEBUG) {
+      console.log("[study-plan] cache HIT", { userId, cacheKey });
+    }
+    return cachedPlan;
+  }
+
+  if (CACHE_DEBUG) {
+    console.log("[study-plan] cache MISS", { userId, cacheKey });
+  }
+
   // Pull a few resources for each weak topic
-    // Pull a few *semantically relevant* resources for each weak topic (RAG)
-    const resourcesByTopic: Record<
+  // Pull a few *semantically relevant* resources for each weak topic (RAG)
+  const resourcesByTopic: Record<
     string,
     { id: string; title: string; url: string | null }[]
   > = {};
@@ -464,10 +528,13 @@ export async function getSystemDesignPlanForUser(
       .join(" ");
 
     try {
-
       // 2) Semantic search in sd_resources using pgvector
-      const resources: SDResource[] = await systemDesignAiService.getRagResourcesForTopic(queryText, normalizedTopic);
-      
+      const resources: SDResource[] =
+        await systemDesignAiService.getRagResourcesForTopic(
+          queryText,
+          normalizedTopic
+        );
+
       // 3) Map to the simple shape expected by the AI service
       resourcesByTopic[topic] = resources.map((r) => ({
         id: r.id,
@@ -498,15 +565,16 @@ export async function getSystemDesignPlanForUser(
     stats,
     resourcesByTopic,
   });
-
+  // 🔹 4) Store in cache (uses default TTL from redis.ts)
+  await cacheSet<SystemDesignStudyPlan>(cacheKey, plan);
+  if (CACHE_DEBUG) {
+    console.log("[study-plan] cache SET", { userId, cacheKey });
+  }
   return plan;
 }
-
 
 function labelForAverageScore(avg: number): TopicLabel {
   if (avg >= 7) return "strong";
   if (avg >= 5) return "average";
   return "weak";
 }
-
-
