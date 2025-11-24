@@ -10,6 +10,39 @@ we reject it early with a clear error rather than letting bugs leak through the 
 */
 import { z } from 'zod';
 
+const AI_LOG_DEBUG = process.env.AI_LOG_DEBUG === '1';
+
+async function timeOpenAiCall<T>(
+  label: string,
+  model: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  const start = Date.now();
+  try {
+    const result = await fn();
+    if (AI_LOG_DEBUG) {
+      const ms = Date.now() - start;
+      console.log('[ai]', label, 'model=', model, 'latency_ms=', ms);
+    }
+    return result;
+  } catch (err) {
+    if (AI_LOG_DEBUG) {
+      const ms = Date.now() - start;
+      console.warn(
+        '[ai]',
+        label,
+        'model=',
+        model,
+        'error after_ms=',
+        ms,
+        'msg=',
+        (err as Error).message,
+      );
+    }
+    throw err;
+  }
+}
+
 export type Message = {
   role: 'system' | 'user';
   content: string;
@@ -74,11 +107,17 @@ async function openAiClientJsonResponse<T>({
   schema: z.ZodSchema<T>;
   temperature?: number;
 }): Promise<T> {
-  const response = await client.responses.create({
+  const response = await timeOpenAiCall(
+    'json_response',
     model,
-    input: toResponseInput(messages),
-    temperature,
-  });
+    () =>
+      client.responses.create({
+        model,
+        input: toResponseInput(messages),
+        temperature,
+      }),
+  );
+
   const raw = extractText(response);
 
   try {
@@ -99,11 +138,16 @@ async function openAiClientTextResponse({
   messages: Message[];
   temperature?: number;
 }): Promise<string> {
-  const response = await client.responses.create({
+  const response = await timeOpenAiCall(
+    'text_response',
     model,
-    input: toResponseInput(messages),
-    temperature,
-  });
+    () =>
+      client.responses.create({
+        model,
+        input: toResponseInput(messages),
+        temperature,
+      }),
+  );
 
   return extractText(response);
 }
@@ -113,10 +157,17 @@ export async function createEmbeddingForText(input: string): Promise<number[]> {
     throw new Error("Cannot create embedding for empty text");
   }
 
-  const response = await client.embeddings.create({
-    model: "text-embedding-3-small",
-    input,
-  });
+  const model = "text-embedding-3-small";
+
+  const response = await timeOpenAiCall(
+    'embedding_create',
+    model,
+    () =>
+      client.embeddings.create({
+        model,
+        input,
+      }),
+  );
 
   const embedding = response.data[0]?.embedding;
   if (!embedding) {
@@ -126,10 +177,18 @@ export async function createEmbeddingForText(input: string): Promise<number[]> {
 }
 
 export async function embedText(text: string): Promise<number[]> {
-  const resp = await client.embeddings.create({
-    model: "text-embedding-3-small",
-    input: text,
-  });
+  const model = "text-embedding-3-small";
+
+  const resp = await timeOpenAiCall(
+    'embedding_text',
+    model,
+    () =>
+      client.embeddings.create({
+        model,
+        input: text,
+      }),
+  );
+
   return resp.data[0].embedding;
 }
 
