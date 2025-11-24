@@ -2,167 +2,473 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>System Design Co-Pilot</title>
     <style>
+      :root {
+        --bg: #020617;
+        --bg-elevated: #020617;
+        --bg-muted: #0b1120;
+        --border-subtle: #1f2933;
+        --accent: #38bdf8;
+        --accent-soft: rgba(56, 189, 248, 0.1);
+        --text-main: #e5e7eb;
+        --text-muted: #9ca3af;
+        --danger: #f97373;
+        --success: #4ade80;
+        --radius-lg: 14px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
       body {
+        margin: 0;
+        padding: 0;
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
           sans-serif;
-        max-width: 900px;
-        margin: 2rem auto;
-        padding: 0 1rem;
+        background: radial-gradient(
+          circle at top,
+          #020617,
+          #020617 40%,
+          #020617 100%
+        );
+        color: var(--text-main);
+        display: flex;
+        min-height: 100vh;
+        justify-content: center;
+        align-items: stretch;
       }
-      textarea {
+
+      .app-shell {
         width: 100%;
-        min-height: 200px;
-        font-family: monospace;
-        padding: 0.5rem;
+        max-width: 1120px;
+        padding: 24px 16px 40px;
       }
-      .section {
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 1px solid #ddd;
+
+      @media (min-width: 768px) {
+        .app-shell {
+          padding: 32px 24px 48px;
+        }
       }
-      .label {
+
+      .app-header {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 16px;
+      }
+
+      .app-title {
+        font-size: 1.6rem;
         font-weight: 600;
+        letter-spacing: 0.02em;
       }
-      .pill {
-        display: inline-block;
-        padding: 0.1rem 0.6rem;
-        border-radius: 999px;
-        border: 1px solid #ccc;
-        font-size: 0.75rem;
-        margin-left: 0.5rem;
-      }
-      .pill.strong {
-        border-color: #2f855a;
-        color: #2f855a;
-      }
-      .pill.weak {
-        border-color: #c53030;
-        color: #c53030;
-      }
-      button {
-        padding: 0.5rem 1rem;
+
+      .app-subtitle {
         font-size: 0.9rem;
-        cursor: pointer;
+        color: var(--text-muted);
       }
-      pre {
-        white-space: pre-wrap;
+
+      .app-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.1fr);
+        gap: 16px;
       }
-      ul {
-        padding-left: 1.2rem;
+
+      @media (max-width: 900px) {
+        .app-layout {
+          grid-template-columns: minmax(0, 1fr);
+        }
       }
-      .small {
+
+      .column {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .section {
+        background: radial-gradient(
+          circle at top left,
+          rgba(56, 189, 248, 0.08),
+          var(--bg-muted)
+        );
+        border-radius: var(--radius-lg);
+        padding: 14px 14px 16px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.8);
+      }
+
+      .section h2 {
+        margin: 0 0 6px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+
+      .section p.section-desc {
+        margin: 0 0 8px;
         font-size: 0.8rem;
-        color: #555;
+        color: var(--text-muted);
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .row label {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+      }
+
+      .label {
+        font-size: 0.76rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+      }
+
+      input[type="email"],
+      input[type="text"],
+      textarea,
+      select {
+        width: 100%;
+        padding: 7px 9px;
+        font-size: 0.85rem;
+        border-radius: 8px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: rgba(15, 23, 42, 0.9);
+        color: var(--text-main);
+        outline: none;
+      }
+
+      input[type="email"]:focus,
+      input[type="text"]:focus,
+      textarea:focus,
+      select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.5);
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+      }
+
+      button {
+        appearance: none;
+        border: none;
+        border-radius: 999px;
+        padding: 7px 14px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.12s ease, transform 0.05s ease,
+          box-shadow 0.12s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+      }
+
+      button.primary {
+        background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+        color: #0b1120;
+        box-shadow: 0 8px 24px rgba(56, 189, 248, 0.4);
+      }
+
+      button.secondary {
+        background: rgba(15, 23, 42, 0.9);
+        color: var(--text-main);
+        border: 1px solid rgba(148, 163, 184, 0.4);
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: default;
+        box-shadow: none;
+      }
+
+      button:not(:disabled):hover {
+        transform: translateY(-1px);
+        filter: brightness(1.05);
+      }
+
+      button:not(:disabled):active {
+        transform: translateY(0);
+        filter: brightness(0.98);
+        box-shadow: none;
+      }
+
+      .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 4px;
+      }
+
+      pre,
+      code,
+      .small {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        font-size: 0.8rem;
+      }
+
+      pre {
+        margin: 6px 0 0;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        max-height: 220px;
+        overflow: auto;
+      }
+
+      #status {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+
+      .pill-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: #22c55e;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+        margin-top: 6px;
+      }
+
+      .stat-card {
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+      }
+
+      .stat-label {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .stat-value {
+        margin-top: 3px;
+        font-size: 0.98rem;
+        font-weight: 500;
+      }
+
+      ul {
+        margin: 4px 0 0;
+        padding-left: 16px;
+        font-size: 0.8rem;
+      }
+
+      #question-output,
+      #answer-output,
+      #coach-output,
+      #stats-output,
+      #study-plan-summary,
+      #study-plan-focus-topics {
+        font-size: 0.8rem;
+      }
+
+      #study-plan-practice li a {
+        text-decoration: underline;
       }
     </style>
   </head>
   <body>
-    <h1>System Design Co-Pilot</h1>
-    <p class="small">
-      Backend: <code>/api/v1/system-design</code> &middot; UI: simple HTML +
-      fetch (no framework)
-    </p>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="app-title">System Design Co-Pilot</div>
+        <div class="app-subtitle">
+          AI-powered system design interview coach and study planner · Backend:
+          <code>/api/v1/system-design</code>, simple HTML + fetch UI
+        </div>
+      </header>
 
-    <div class="section">
-      <label class="label" for="email">Email (must exist in users_tbl):</label>
-      <br />
-      <input id="email" type="email" style="width: 100%; max-width: 400px" />
-      <br /><br />
-      <button id="btn-next">Get Next Question</button>
-      <span id="status" class="small"></span>
-    </div>
+      <div class="app-layout">
+        <div class="column column-left">
+          <div class="section">
+            <div class="row">
+              <label class="label" for="email">Email (must exist in users_tbl):</label>
+            </div>
+            <div class="row">
+              <input id="email" type="email" style="width: 100%; max-width: 400px" />
+            </div>
+            <div class="row" style="margin-top: 0.35rem;">
+              <button id="btn-next" class="primary">Get Next Question</button>
+              <span id="status" class="small pill">
+                <span class="pill-dot"></span>
+                <span>Idle</span>
+              </span>
+            </div>
+          </div>
 
-    <div class="section">
-      <div><span class="label">Topic:</span> <span id="topic">-</span></div>
-      <div>
-        <span class="label">Difficulty:</span> <span id="difficulty">-</span>
-      </div>
-      <div>
-        <span class="label">Reason:</span>
-        <span id="reason" class="small">-</span>
-      </div>
-      <div style="margin-top: 0.5rem">
-        <span class="label">Question:</span>
-        <pre id="question">-</pre>
-      </div>
-    </div>
+          <div class="section">
+            <h2>Current Question</h2>
+            <p class="section-desc small">
+              Topic, difficulty, rationale, and prompt.
+            </p>
+            <div class="row">
+              <span class="label">Topic:</span>
+              <span id="topic">-</span>
+            </div>
+            <div class="row">
+              <span class="label">Difficulty:</span>
+              <span id="difficulty">-</span>
+            </div>
+            <div class="row">
+              <span class="label">Reason:</span>
+              <span id="reason" class="small">-</span>
+            </div>
+            <div style="margin-top: 0.5rem">
+              <span class="label">Question:</span>
+              <pre id="question">-</pre>
+            </div>
+          </div>
 
-    <div class="section">
-      <div class="label">Your answer:</div>
-      <textarea id="answer"></textarea>
-      <br />
-      <button id="btn-submit">Submit Answer &amp; Get Feedback</button>
-    </div>
+          <div class="section">
+            <h2>Your Answer</h2>
+            <p class="section-desc small">
+              Draft your system design answer below, then submit for evaluation and coaching.
+            </p>
+            <textarea id="answer"></textarea>
+            <div class="btn-group">
+              <button id="btn-submit" class="primary">
+                Submit Answer &amp; Get Feedback
+              </button>
+            </div>
+          </div>
 
-    <div class="section">
-      <h2>Your Stats</h2>
-      <button id="btn-stats">Refresh Stats</button>
-      <div class="small" id="stats-summary">No stats loaded yet.</div>
-      <div style="margin-top: 0.5rem">
-        <span class="label">Weak topics:</span>
-        <span id="stats-weak">-</span>
-      </div>
-      <div style="margin-top: 0.5rem">
-        <span class="label">Strong topics:</span>
-        <span id="stats-strong">-</span>
-      </div>
-    </div>
+          <div class="section">
+            <h2>Coach Feedback</h2>
+            <p class="section-desc small">
+              AI coach summary, strengths, weaknesses, and targeted practice suggestions.
+            </p>
+            <div id="coach-summary">-</div>
+            <div style="margin-top: 0.5rem">
+              <span class="label">What you did well:</span>
+              <ul id="coach-well"></ul>
+            </div>
+            <div style="margin-top: 0.5rem">
+              <span class="label">What to improve next time:</span>
+              <ul id="coach-next"></ul>
+            </div>
+            <div style="margin-top: 0.5rem">
+              <span class="label">Consistent patterns I notice:</span>
+              <ul id="coach-patterns"></ul>
+            </div>
+            <div style="margin-top: 0.5rem">
+              <span class="label">How to fix your mental model:</span>
+              <ul id="coach-mental-model"></ul>
+            </div>
+            <div style="margin-top: 0.5rem">
+              <span class="label">Next practice suggestion:</span>
+              <div id="coach-next-practice" class="small"></div>
+            </div>
+            <div style="margin-top: 0.5rem">
+              <span class="label">Recommended resources:</span>
+              <ul id="coach-resources"></ul>
+            </div>
+          </div>
+        </div>
 
-    <div class="section">
-      <h2>Auto Evaluation</h2>
-      <div><span class="label">Score:</span> <span id="score">-</span></div>
-      <div style="margin-top: 0.5rem">
-        <span class="label">Strengths:</span>
-        <ul id="strengths"></ul>
-      </div>
-      <div style="margin-top: 0.5rem">
-        <span class="label">Weaknesses:</span>
-        <ul id="weaknesses"></ul>
-      </div>
-    </div>
+        <div class="column column-right">
+          <div class="section">
+            <h2>Your Stats</h2>
+            <p class="section-desc small">
+              Aggregate view of your system design practice progress.
+            </p>
+            <div class="btn-group">
+              <button id="btn-stats" class="secondary">Refresh Stats</button>
+            </div>
+            <div class="small" id="stats-summary">No stats loaded yet.</div>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-label">Weak topics</div>
+                <div class="stat-value" id="stats-weak">-</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Strong topics</div>
+                <div class="stat-value" id="stats-strong">-</div>
+              </div>
+            </div>
+          </div>
 
-    <div class="section">
-      <h2>Coach Feedback</h2>
-      <div id="coach-summary">-</div>
-      <div style="margin-top: 0.5rem">
-        <span class="label">What you did well:</span>
-        <ul id="coach-well"></ul>
-      </div>
-      <div style="margin-top: 0.5rem">
-        <span class="label">What to improve next time:</span>
-        <ul id="coach-next"></ul>
-      </div>
-      <div style="margin-top: 0.5rem">
-        <span class="label">Consistent patterns I notice:</span>
-        <ul id="coach-patterns"></ul>
-      </div>
-      <div style="margin-top: 0.5rem">
-        <span class="label">How to fix your mental model:</span>
-        <ul id="coach-mental-model"></ul>
-      </div>
-      <div style="margin-top: 0.5rem">
-        <span class="label">Next practice suggestion:</span>
-        <div id="coach-next-practice" class="small"></div>
-      </div>
-      <div style="margin-top: 0.5rem">
-        <span class="label">Recommended resources:</span>
-        <ul id="coach-resources"></ul>
-      </div>
-    </div>
+          <div class="section">
+            <h2>Auto Evaluation</h2>
+            <p class="section-desc small">
+              Raw score and extracted strengths/weaknesses from your latest answer.
+            </p>
+            <div class="row">
+              <span class="label">Score:</span>
+              <span id="score">-</span>
+            </div>
+            <div style="margin-top: 0.5rem">
+              <span class="label">Strengths:</span>
+              <ul id="strengths"></ul>
+            </div>
+            <div style="margin-top: 0.5rem">
+              <span class="label">Weaknesses:</span>
+              <ul id="weaknesses"></ul>
+            </div>
+          </div>
 
-    <div class="section">
-      <h2>Study Plan</h2>
-      <button id="btn-study-plan">Generate Study Plan</button>
-      <div id="study-plan-summary" class="small">No study plan generated yet.</div>
-      <div style="margin-top: 0.5rem">
-        <span class="label">Focus topics:</span>
-        <span id="study-plan-focus-topics" class="small">-</span>
-      </div>
-      <div style="margin-top: 0.5rem">
-        <span class="label">Practice suggestions:</span>
-        <ul id="study-plan-practice"></ul>
+          <div class="section">
+            <h2>Study Plan</h2>
+            <p class="section-desc small">
+              Generate a personalized plan based on your stats and weak topics.
+            </p>
+            <div class="btn-group">
+              <button id="btn-study-plan" class="secondary">Generate Study Plan</button>
+            </div>
+            <div id="study-plan-summary" class="small">
+              No study plan generated yet.
+            </div>
+            <div style="margin-top: 0.5rem">
+              <span class="label">Focus topics:</span>
+              <span id="study-plan-focus-topics" class="small">-</span>
+            </div>
+            <div style="margin-top: 0.5rem">
+              <span class="label">Practice suggestions:</span>
+              <ul id="study-plan-practice"></ul>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
