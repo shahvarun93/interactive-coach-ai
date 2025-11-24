@@ -1,5 +1,3 @@
-
-
 # System Design Co‑Pilot
 
 An AI‑powered **system design interview coach** and **study planner** built with Node.js, TypeScript, Postgres, and the OpenAI API.
@@ -41,7 +39,7 @@ The stack is intentionally close to what you’d expect in a modern backend/AI s
 
 - **Backend:** Node.js, TypeScript, Express‑style routing
 - **Database:** Postgres (Supabase‑hosted)
-- **Cache (optional/infra):** Redis / Upstash
+- **Cache:** Redis / Upstash (used to cache AI outputs like coach feedback and study plans)
 - **AI:** OpenAI API with strict JSON responses validated via Zod
 - **Frontend:** Simple HTML/JS client (`public/index.html`) for manual exploration
 
@@ -112,7 +110,7 @@ to generate a JSON study plan:
 
 The UI renders this nicely and turns referenced resources into clickable links.
 
-### 6. System Design Resources (RAG‑lite)
+### 6. System Design Resources (RAG with pgvector)
 
 The project defines a small set of **system design resources** in `sd_resources`:
 
@@ -133,11 +131,17 @@ Each resource has:
 
 These are used as a **knowledge base**:
 
-- The coach can reference them.
+- The coach can reference them when giving feedback.
 - The study plan can point to them as next‑step material.
 - The UI shows them as links (no raw `.html` filenames).
 
-A future step is to add **embeddings + pgvector** for true semantic RAG.
+The backend also supports **semantic retrieval** using embeddings + pgvector:
+
+- A seed script writes these resources into `sd_resources` and can attach embeddings to each row (when OpenAI quota allows).
+- At runtime, the coach and study plan build a small query (topic + question/weaknesses or topic + stats) and:
+  - embed it via OpenAI,
+  - run a pgvector similarity search to pick the most relevant resources for that topic,
+  - fall back to simple topic filtering if embeddings are missing.
 
 ---
 
@@ -171,7 +175,7 @@ At a high level the system looks like this:
     - `sd-resources.dao.ts`
   - Infra:
     - `db.ts` (Postgres connection + query helper)
-    - `redis` (planned / optional)
+    - `redis` (Upstash-backed cache for AI responses and plans)
 
 - **Database (Postgres)**
   - `users_tbl`
@@ -314,8 +318,13 @@ Create a `.env` file in the project root, with values like:
 # Postgres connection string
 DATABASE_URL=postgresql://postgres:password@host:5432/postgres
 
-# Redis (optional, for future caching)
-REDIS_URL=...
+# Redis (Upstash, used for caching AI outputs)
+UPSTASH_REDIS_REST_URL=...
+UPSTASH_REDIS_REST_TOKEN=...
+
+# Optional debug flags
+CACHE_DEBUG=0
+AI_LOG_DEBUG=0
 
 # OpenAI
 OPENAI_API_KEY=sk-...
@@ -394,24 +403,43 @@ While not using a formal agent framework, the project defines clear “agent‑l
 
 These are implemented as service functions that call the OpenAI client with specific prompts and schemas.
 
-### 3. RAG (current and future)
+### 3. RAG (semantic retrieval with pgvector)
 
-**Current (RAG‑lite):**
+**Current behavior:**
 
-- `sd_resources` table stores labeled notes per topic.
-- Coach and study plan use `topic` to select relevant resources.
-- URLs point to static HTML cheat sheets served from `public/`.
+- `sd_resources` stores labeled notes per topic, along with an optional `embedding` column (pgvector).
+- A seed script populates `sd_resources` and, when OpenAI quota is available, generates embeddings for each resource.
+- For the **coach**:
+  - query text includes topic, question, and user weaknesses / mistake patterns.
+- For the **study plan**:
+  - query text includes topic, overall level, and average score.
 
-**Future (true RAG):**
+At runtime:
 
-- Add `embedding` column with pgvector.
-- Use an embedding model to embed resource content.
-- At runtime:
-  - embed (topic + question + weaknesses),
-  - run `ORDER BY embedding <-> query_embedding LIMIT N`,
-  - feed the top‑k snippets into the AI prompts as context.
+1. Build a query string from topic + context (question, weaknesses, stats).
+2. Create an embedding using OpenAI.
+3. Run a pgvector similarity search:
 
-This will let the system ground its feedback in semantically relevant material instead of just topic labels.
+   ```sql
+   SELECT id, title, topic, url, content, created_at
+   FROM sd_resources
+   WHERE topic = $1
+     AND embedding IS NOT NULL
+   ORDER BY embedding <-> $2::vector
+   LIMIT $3;
+   ```
+
+4. Use the top results to:
+   - provide grounded references for the coach feedback, and
+   - inform the weak‑topic resources in the study plan.
+
+If embeddings are missing or an error occurs, the system gracefully falls back to simple topic‑based resource selection.
+
+**Future enhancements:**
+
+- Add more resources (and richer content) per topic.
+- Support multi‑topic retrieval in a single call.
+- Add UI to browse the underlying knowledge base directly.
 
 ---
 
@@ -419,9 +447,9 @@ This will let the system ground its feedback in semantically relevant material i
 
 A few planned / potential enhancements:
 
-- **Full RAG with pgvector**
-  - Embeddings for `sd_resources`.
-  - Semantic search for coach + study plan.
+- **Extend RAG with pgvector**
+  - ✅ Initial embeddings + semantic search for coach and study plan.
+  - ⏩ Expand coverage (more resources, multi‑topic queries, richer snippets).
 
 - **History UI & Session History API**
   - Paginated list of sessions per user.
@@ -429,15 +457,17 @@ A few planned / potential enhancements:
   - Trend charts over time (scores per topic).
 
 - **Redis Caching**
-  - Cache study plans per user for a short TTL.
-  - Cache expensive queries or precomputed stats.
+  - ✅ Cache study plans per user keyed by latest practice time.
+  - ✅ Cache coach feedback per session/score so repeated requests are free.
+  - ⏩ Refine TTLs and invalidation strategies as the app scales.
 
 - **Auth & Multi‑user Deployment**
   - Simple auth (e.g., magic link or OAuth) instead of free‑text email.
   - Hosted deployment (Render/Fly/Railway/etc.) behind a custom domain.
 
 - **Agent Framework Integration**
-  - Optional: experiment with LangGraph or MCP tools to expose DB and services as LLM‑callable tools.
+  - The current design already has clear “agents by responsibility” (question, evaluator, coach, study planner).
+  - Future: experiment with LangGraph or MCP to expose DB and services as LLM‑callable tools for more advanced orchestration.
 
 ---
 
