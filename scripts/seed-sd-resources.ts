@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
 import { Pool } from 'pg';
-import { createEmbeddingForText } from '../src/ai/openaiClient';
+import { createEmbeddingForText } from '../src/infra/openaiClient';
 import { SDResource } from '../src/interfaces/SDResource';
 
 dotenv.config();

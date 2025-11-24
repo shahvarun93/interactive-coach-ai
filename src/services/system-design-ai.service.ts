@@ -7,7 +7,7 @@ It has 3 jobs:
 	3.	Suggest the next topic & difficulty based on user stats (agent policy)
 */
 import { z } from "zod";
-import { responsesClient, embedText } from "../ai/openaiClient";
+import { responsesClient, embedText } from "../infra/openaiClient";
 import { GeneratedSDQuestion } from "../interfaces/GeneratedSDQuestion";
 import { SystemDesignCoachFeedback } from "../interfaces/SystemDesignCoach";
 import { CoachFeedbackArgs } from "../interfaces/CoachFeedbackArgs";
