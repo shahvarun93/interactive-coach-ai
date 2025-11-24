@@ -7,12 +7,13 @@ It has 3 jobs:
 	3.	Suggest the next topic & difficulty based on user stats (agent policy)
 */
 import { z } from "zod";
-import { responsesClient } from "../ai/openaiClient";
+import { responsesClient, embedText } from "../ai/openaiClient";
 import { GeneratedSDQuestion } from "../interfaces/GeneratedSDQuestion";
 import { SystemDesignCoachFeedback } from "../interfaces/SystemDesignCoach";
 import { CoachFeedbackArgs } from "../interfaces/CoachFeedbackArgs";
 import { UserSystemDesignStats } from "../interfaces/UserSDStats";
 import { SystemDesignStudyPlan } from "../interfaces/SystemDesignStudyPlan";
+import * as sdResourceDao from "../dao/sd-resources.dao";
 
 const QuestionResponseSchema = z.object({
   question: z.string().min(1),
@@ -198,6 +199,18 @@ export async function generateSystemDesignCoachFeedback(
     topicMistakePatterns,
   } = args;
 
+  const ragResources = await getRagResourcesForSession({
+    topic,
+    question,
+    weaknesses: weaknesses ?? [],
+  });
+  const ragContext = ragResources
+  .map((r, idx) => {
+    const snippet = r.content ?? "";
+    return `Resource #${idx + 1}: ${r.title}\n${snippet}\nURL: ${r.url ?? "N/A"}`;
+  })
+  .join("\n\n");
+
   const systemPrompt = `
 You are an experienced backend and system design interview coach.
 
@@ -218,6 +231,7 @@ You will receive:
 - An auto-evaluation for THIS session (score, strengths, weaknesses).
 - topicMistakePatterns: a summary of recurring mistakes for this topic across the candidate's recent sessions.
 - A list of learning resources (articles/notes) you can point them to.
+- and a set of retrieved system design resources (ragContext). Use ragContext to ground your feedback and suggestions. Prefer citing strategies that appear there when relevant.
 
 Your job:
 1. Summarize how the candidate did on THIS answer in 2–4 sentences.
@@ -293,6 +307,7 @@ Rules:
     weaknesses,
     resources: resourcesSummary,
     topicMistakePatterns,
+    ragContext
   };
 
   const userPrompt = JSON.stringify(userPayload, null, 2);
@@ -453,4 +468,28 @@ Output STRICTLY as JSON following this schema:
     recommendedSequence: result.recommendedSequence ?? [],
     practiceSuggestions: result.practiceSuggestions ?? [],
   } as SystemDesignStudyPlan;
+}
+
+async function getRagResourcesForSession(session: {
+  topic: string;
+  question: string;
+  weaknesses: string[];
+}) {
+  const { topic, question, weaknesses } = session;
+
+  const queryText = [
+    `Topic: ${topic}`,
+    `Question: ${question}`,
+    weaknesses.length ? `User weaknesses: ${weaknesses.join("; ")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const queryEmbedding = await embedText(queryText);
+
+  return await sdResourceDao.findRelevantResourcesByEmbedding({
+    topic,
+    queryEmbedding,
+    limit: 3,
+  });
 }

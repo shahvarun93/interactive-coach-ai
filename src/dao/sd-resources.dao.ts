@@ -45,3 +45,29 @@ export async function findResourcesByTopic(
 
   return result.rows as SDResource[];
 }
+
+export async function findRelevantResourcesByEmbedding(args: {
+  topic: string;
+  queryEmbedding: number[];
+  limit?: number;
+}): Promise<SDResource[]> {
+  const { topic, queryEmbedding, limit = 3 } = args;
+
+  // pgvector: pass embedding as '[x,y,z]' literal
+  const vectorLiteral = `[${queryEmbedding.join(",")}]`;
+  // Why ORDER BY with it?
+  // Because we want the closest / most similar resources:
+  const res = await query(
+    `
+    SELECT id, topic, title, url, content
+    FROM sd_resources
+    WHERE topic = $1
+      AND embedding IS NOT NULL
+    ORDER BY embedding <-> $2::vector //treat this value as type vector <-> : Distance operator
+    LIMIT $3
+    `,
+    [topic, vectorLiteral, limit]
+  );
+
+  return res.rows;
+}

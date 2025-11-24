@@ -108,6 +108,31 @@ async function openAiClientTextResponse({
   return extractText(response);
 }
 
+export async function createEmbeddingForText(input: string): Promise<number[]> {
+  if (!input.trim()) {
+    throw new Error("Cannot create embedding for empty text");
+  }
+
+  const response = await client.embeddings.create({
+    model: "text-embedding-3-small",
+    input,
+  });
+
+  const embedding = response.data[0]?.embedding;
+  if (!embedding) {
+    throw new Error("No embedding returned from OpenAI");
+  }
+  return embedding;
+}
+
+export async function embedText(text: string): Promise<number[]> {
+  const resp = await client.embeddings.create({
+    model: "text-embedding-3-small",
+    input: text,
+  });
+  return resp.data[0].embedding;
+}
+
 export const responsesClient = {
   openAiClientJsonResponse: openAiClientJsonResponse,
   openAiClientTextResponse: openAiClientTextResponse,

@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
 import { Pool } from 'pg';
+import { createEmbeddingForText } from '../src/ai/openaiClient';
+import { SDResource } from '../src/interfaces/SDResource';
 
 dotenv.config();
 
@@ -77,15 +79,6 @@ const RESOURCES: SeedResource[] = [
   },
 ];
 
-// Embedding = turning text into a vector so we can do similarity search.
-async function embed(text: string): Promise<number[]> {
-  const result = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: text,
-  });
-  return result.data[0].embedding;
-}
-
 async function seed() {
   for (const resource of RESOURCES) {
     let embedding: number[] | null = null;
@@ -112,7 +105,95 @@ async function seed() {
   }
 }
 
-seed()
+// Embedding = turning text into a vector so we can do similarity search.
+async function embed(text: string): Promise<number[]> {
+  const result = await openai.embeddings.create({
+    model: 'text-embedding-3-small',
+    input: text,
+  });
+  return result.data[0].embedding;
+}
+
+async function seedEmbeddings() {
+  console.log("Starting sd_resources embeddings seeding...");
+
+  const batch = await fetchResourcesWithoutEmbedding(10);
+  if (batch.length === 0) {
+    console.log("No sd_resources rows without embeddings. Nothing to do.");
+    return;
+  }
+
+  for (const row of batch) {
+    const baseText = `${row.title ?? ""}\n\n${row.content ?? ""}`.trim();
+    if (!baseText) {
+      console.log(
+        `Skipping resource ${row.id} (${row.title}) – no text content for embedding`
+      );
+      continue;
+    }
+
+    console.log(`Embedding resource: ${row.id} (${row.title})...`);
+
+    try {
+      const embedding = await createEmbeddingForText(baseText);
+      const vectorLiteral = toVectorLiteral(embedding);
+
+      await pool.query(
+        `
+        UPDATE sd_resources
+        SET embedding = $1::vector
+        WHERE id = $2
+        `,
+        [vectorLiteral, row.id]
+      );
+
+      console.log(`✓ Updated embedding for ${row.id}`);
+    } catch (err: any) {
+      const msg = String(err?.message ?? err);
+      console.error(`✗ Failed embedding for ${row.id}:`, msg);
+
+      // If quota/rate-limits, stop early so you can rerun later
+      if (
+        msg.includes("insufficient_quota") ||
+        msg.includes("You exceeded your current quota") ||
+        msg.includes("rate limit") ||
+        msg.includes("429")
+      ) {
+        console.error(
+          "Looks like quota or rate limit issue. Stopping seeding early so you can rerun later."
+        );
+        break;
+      }
+
+      // For other errors, just continue to next row
+      continue;
+    }
+  }
+
+  console.log("sd_resources embedding seeding run complete.");
+}
+
+async function fetchResourcesWithoutEmbedding(limit = 5): Promise<SDResource[]> {
+  const res = await pool.query(
+    `
+    SELECT id, topic, title, content
+    FROM sd_resources
+    WHERE embedding IS NULL
+    ORDER BY created_at ASC
+    LIMIT $1
+    `,
+    [limit]
+  );
+  return res.rows;
+}
+
+// Helper: convert embedding array to pgvector literal
+function toVectorLiteral(embedding: number[]): string {
+  // pgvector accepts '[x,y,z]' style
+  return `[${embedding.join(",")}]`;
+}
+
+seedEmbeddings()
   .then(() => {
     console.log('sd_resources seeding complete');
   })
