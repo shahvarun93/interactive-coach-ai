@@ -1,854 +1,1125 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>System Design Co-Pilot</title>
-    <style>
-      :root {
-        --bg: #020617;
-        --bg-elevated: #020617;
-        --bg-muted: #0b1120;
-        --border-subtle: #1f2933;
-        --accent: #38bdf8;
-        --accent-soft: rgba(56, 189, 248, 0.1);
-        --text-main: #e5e7eb;
-        --text-muted: #9ca3af;
-        --danger: #f97373;
-        --success: #4ade80;
-        --radius-lg: 14px;
-      }
 
-      * {
-        box-sizing: border-box;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>System Design Co-Pilot</title>
+  <style>
+    :root {
+      --bg: #020617;
+      --bg-elevated: #020617;
+      --bg-muted: #0b1120;
+      --border-subtle: #1f2933;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.1);
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --danger: #f97373;
+      --success: #4ade80;
+      --radius-lg: 14px;
+    }
 
-      body {
-        margin: 0;
-        padding: 0;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-          sans-serif;
-        background: radial-gradient(
-          circle at top,
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: radial-gradient(circle at top,
           #020617,
           #020617 40%,
-          #020617 100%
-        );
-        color: var(--text-main);
-        display: flex;
-        min-height: 100vh;
-        justify-content: center;
-        align-items: stretch;
-      }
+          #020617 100%);
+      color: var(--text-main);
+      display: flex;
+      min-height: 100vh;
+      justify-content: center;
+      align-items: stretch;
+    }
 
+    .app-shell {
+      width: 100%;
+      max-width: 1120px;
+      padding: 24px 16px 40px;
+    }
+
+    @media (min-width: 768px) {
       .app-shell {
-        width: 100%;
-        max-width: 1120px;
-        padding: 24px 16px 40px;
+        padding: 32px 24px 48px;
       }
+    }
 
-      @media (min-width: 768px) {
-        .app-shell {
-          padding: 32px 24px 48px;
-        }
-      }
+    .app-header {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 16px;
+    }
 
-      .app-header {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        margin-bottom: 16px;
-      }
+    .app-title {
+      font-size: 1.6rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
 
-      .app-title {
-        font-size: 1.6rem;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-      }
+    .app-subtitle {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
 
-      .app-subtitle {
-        font-size: 0.9rem;
-        color: var(--text-muted);
-      }
+    .app-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.1fr);
+      gap: 16px;
+    }
 
+    @media (max-width: 900px) {
       .app-layout {
-        display: grid;
-        grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.1fr);
-        gap: 16px;
+        grid-template-columns: minmax(0, 1fr);
       }
+    }
 
-      @media (max-width: 900px) {
-        .app-layout {
-          grid-template-columns: minmax(0, 1fr);
-        }
-      }
+    .column {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
 
-      .column {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-
-      .section {
-        background: radial-gradient(
-          circle at top left,
+    .section {
+      background: radial-gradient(circle at top left,
           rgba(56, 189, 248, 0.08),
-          var(--bg-muted)
-        );
-        border-radius: var(--radius-lg);
-        padding: 14px 14px 16px;
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.8);
-      }
+          var(--bg-muted));
+      border-radius: var(--radius-lg);
+      padding: 14px 14px 16px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.8);
+    }
 
-      .section h2 {
-        margin: 0 0 6px;
-        font-size: 0.95rem;
-        font-weight: 600;
-        letter-spacing: 0.03em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-      }
+    .section h2 {
+      margin: 0 0 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
 
-      .section p.section-desc {
-        margin: 0 0 8px;
-        font-size: 0.8rem;
-        color: var(--text-muted);
-      }
+    .section p.section-desc {
+      margin: 0 0 8px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
 
-      .row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        align-items: center;
-        margin-bottom: 8px;
-      }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
 
-      .row label {
-        font-size: 0.8rem;
-        color: var(--text-muted);
-      }
+    .row label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
 
-      .label {
-        font-size: 0.76rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--text-muted);
-      }
+    .label {
+      font-size: 0.76rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
 
-      input[type="email"],
-      input[type="text"],
-      textarea,
-      select {
-        width: 100%;
-        padding: 7px 9px;
-        font-size: 0.85rem;
-        border-radius: 8px;
-        border: 1px solid rgba(148, 163, 184, 0.4);
-        background: rgba(15, 23, 42, 0.9);
-        color: var(--text-main);
-        outline: none;
-      }
+    input[type="email"],
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 7px 9px;
+      font-size: 0.85rem;
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-main);
+      outline: none;
+    }
 
-      input[type="email"]:focus,
-      input[type="text"]:focus,
-      textarea:focus,
-      select:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.5);
-      }
+    input[type="email"]:focus,
+    input[type="text"]:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.5);
+    }
 
-      textarea {
-        min-height: 120px;
-        resize: vertical;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-          "Liberation Mono", "Courier New", monospace;
-      }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+    }
 
-      button {
-        appearance: none;
-        border: none;
-        border-radius: 999px;
-        padding: 7px 14px;
-        font-size: 0.8rem;
-        font-weight: 500;
-        letter-spacing: 0.03em;
-        text-transform: uppercase;
-        cursor: pointer;
-        transition: background 0.12s ease, transform 0.05s ease,
-          box-shadow 0.12s ease;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        white-space: nowrap;
-      }
+    button {
+      appearance: none;
+      border: none;
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.12s ease, transform 0.05s ease,
+        box-shadow 0.12s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
 
-      button.primary {
-        background: linear-gradient(135deg, #38bdf8, #0ea5e9);
-        color: #0b1120;
-        box-shadow: 0 8px 24px rgba(56, 189, 248, 0.4);
-      }
+    button.primary {
+      background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+      color: #0b1120;
+      box-shadow: 0 8px 24px rgba(56, 189, 248, 0.4);
+    }
 
-      button.secondary {
-        background: rgba(15, 23, 42, 0.9);
-        color: var(--text-main);
-        border: 1px solid rgba(148, 163, 184, 0.4);
-      }
+    button.secondary {
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-main);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
 
-      button:disabled {
-        opacity: 0.6;
-        cursor: default;
-        box-shadow: none;
-      }
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+      box-shadow: none;
+    }
 
-      button:not(:disabled):hover {
-        transform: translateY(-1px);
-        filter: brightness(1.05);
-      }
+    button:not(:disabled):hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+    }
 
-      button:not(:disabled):active {
-        transform: translateY(0);
-        filter: brightness(0.98);
-        box-shadow: none;
-      }
+    button:not(:disabled):active {
+      transform: translateY(0);
+      filter: brightness(0.98);
+      box-shadow: none;
+    }
 
-      .btn-group {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 4px;
-      }
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+    }
 
-      pre,
-      code,
-      .small {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-          "Liberation Mono", "Courier New", monospace;
-        font-size: 0.8rem;
-      }
+    pre,
+    code,
+    .small {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+      font-size: 0.8rem;
+    }
 
-      pre {
-        margin: 6px 0 0;
-        padding: 8px 10px;
-        border-radius: 8px;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        max-height: 220px;
-        overflow: auto;
-      }
+    pre {
+      margin: 6px 0 0;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      max-height: 220px;
+      overflow: auto;
+    }
 
-      #status {
-        font-size: 0.78rem;
-        color: var(--text-muted);
-        margin-top: 4px;
-      }
+    #status {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
 
-      .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 3px 9px;
-        border-radius: 999px;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.4);
-        font-size: 0.75rem;
-        color: var(--text-muted);
-      }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
 
-      .pill-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 999px;
-        background: #22c55e;
-      }
+    .pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #22c55e;
+    }
 
-      .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 8px;
-        margin-top: 6px;
-      }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+      margin-top: 6px;
+    }
 
-      .stat-card {
-        padding: 6px 8px;
-        border-radius: 8px;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.25);
-      }
+    .stat-card {
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
 
-      .stat-label {
-        font-size: 0.72rem;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-      }
+    .stat-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
 
-      .stat-value {
-        margin-top: 3px;
-        font-size: 0.98rem;
-        font-weight: 500;
-      }
+    .stat-value {
+      margin-top: 3px;
+      font-size: 0.98rem;
+      font-weight: 500;
+    }
 
-      ul {
-        margin: 4px 0 0;
-        padding-left: 16px;
-        font-size: 0.8rem;
-      }
+    ul {
+      margin: 4px 0 0;
+      padding-left: 16px;
+      font-size: 0.8rem;
+    }
 
-      #question-output,
-      #answer-output,
-      #coach-output,
-      #stats-output,
-      #study-plan-summary,
-      #study-plan-focus-topics {
-        font-size: 0.8rem;
-      }
+    #question-output,
+    #answer-output,
+    #coach-output,
+    #stats-output,
+    #study-plan-summary,
+    #study-plan-focus-topics {
+      font-size: 0.8rem;
+    }
 
-      #study-plan-practice li a {
-        text-decoration: underline;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="app-shell">
-      <header class="app-header">
-        <div class="app-title">System Design Co-Pilot</div>
-        <div class="app-subtitle">
-          AI-powered system design interview coach and study planner · Backend:
-          <code>/api/v1/system-design</code>, simple HTML + fetch UI
-        </div>
-      </header>
+    #study-plan-practice li a {
+      text-decoration: underline;
+    }
 
-      <div class="app-layout">
-        <div class="column column-left">
-          <div class="section">
-            <div class="row">
-              <label class="label" for="email">Email (must exist in users_tbl):</label>
-            </div>
-            <div class="row">
-              <input id="email" type="email" style="width: 100%; max-width: 400px" />
-            </div>
-            <div class="row" style="margin-top: 0.35rem;">
-              <button id="btn-next" class="primary">Get Next Question</button>
-              <span id="status" class="small pill">
-                <span class="pill-dot"></span>
-                <span>Idle</span>
-              </span>
-            </div>
+    .history-row.selected {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .history-row.selected td {
+      font-weight: 500;
+    }
+
+    /* History pagination buttons – make them visible on dark background */
+    /* History pagination buttons – make them visible on dark background */
+    #history-prev-btn,
+    #history-next-btn {
+      background-color: #2f81f7 !important;
+      /* bright blue */
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    /* Hover state */
+    #history-prev-btn:hover:not(:disabled),
+    #history-next-btn:hover:not(:disabled) {
+      background-color: #4f8fff !important;
+    }
+
+    /* Disabled state – still visible but clearly inactive */
+    #history-prev-btn:disabled,
+    #history-next-btn:disabled {
+      background-color: transparent !important;
+      color: rgba(148, 163, 184, 0.9) !important;
+      border: 1px solid rgba(148, 163, 184, 0.7) !important;
+      cursor: default;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="app-title">System Design Co-Pilot</div>
+      <div class="app-subtitle">
+        AI-powered system design interview coach and study planner · Backend:
+        <code>/api/v1/system-design</code>, simple HTML + fetch UI
+      </div>
+    </header>
+
+    <div class="app-layout">
+      <div class="column column-left">
+        <div class="section">
+          <div class="row">
+            <label class="label" for="email">Email (must exist in users_tbl):</label>
           </div>
-
-          <div class="section">
-            <h2>Current Question</h2>
-            <p class="section-desc small">
-              Topic, difficulty, rationale, and prompt.
-            </p>
-            <div class="row">
-              <span class="label">Topic:</span>
-              <span id="topic">-</span>
-            </div>
-            <div class="row">
-              <span class="label">Difficulty:</span>
-              <span id="difficulty">-</span>
-            </div>
-            <div class="row">
-              <span class="label">Reason:</span>
-              <span id="reason" class="small">-</span>
-            </div>
-            <div style="margin-top: 0.5rem">
-              <span class="label">Question:</span>
-              <pre id="question">-</pre>
-            </div>
+          <div class="row">
+            <input id="email" type="email" style="width: 100%; max-width: 400px" />
           </div>
-
-          <div class="section">
-            <h2>Your Answer</h2>
-            <p class="section-desc small">
-              Draft your system design answer below, then submit for evaluation and coaching.
-            </p>
-            <textarea id="answer"></textarea>
-            <div class="btn-group">
-              <button id="btn-submit" class="primary">
-                Submit Answer &amp; Get Feedback
-              </button>
-            </div>
-          </div>
-
-          <div class="section">
-            <h2>Coach Feedback</h2>
-            <p class="section-desc small">
-              AI coach summary, strengths, weaknesses, and targeted practice suggestions.
-            </p>
-            <div id="coach-summary">-</div>
-            <div style="margin-top: 0.5rem">
-              <span class="label">What you did well:</span>
-              <ul id="coach-well"></ul>
-            </div>
-            <div style="margin-top: 0.5rem">
-              <span class="label">What to improve next time:</span>
-              <ul id="coach-next"></ul>
-            </div>
-            <div style="margin-top: 0.5rem">
-              <span class="label">Consistent patterns I notice:</span>
-              <ul id="coach-patterns"></ul>
-            </div>
-            <div style="margin-top: 0.5rem">
-              <span class="label">How to fix your mental model:</span>
-              <ul id="coach-mental-model"></ul>
-            </div>
-            <div style="margin-top: 0.5rem">
-              <span class="label">Next practice suggestion:</span>
-              <div id="coach-next-practice" class="small"></div>
-            </div>
-            <div style="margin-top: 0.5rem">
-              <span class="label">Recommended resources:</span>
-              <ul id="coach-resources"></ul>
-            </div>
+          <div class="row" style="margin-top: 0.35rem;">
+            <button id="btn-next" class="primary">Get Next Question</button>
+            <span id="status" class="small pill">
+              <span class="pill-dot"></span>
+              <span>Idle</span>
+            </span>
           </div>
         </div>
 
-        <div class="column column-right">
-          <div class="section">
-            <h2>Your Stats</h2>
-            <p class="section-desc small">
-              Aggregate view of your system design practice progress.
-            </p>
-            <div class="btn-group">
-              <button id="btn-stats" class="secondary">Refresh Stats</button>
+        <div class="section">
+          <h2>Current Question</h2>
+          <p class="section-desc small">
+            Topic, difficulty, rationale, and prompt.
+          </p>
+          <div class="row">
+            <span class="label">Topic:</span>
+            <span id="topic">-</span>
+          </div>
+          <div class="row">
+            <span class="label">Difficulty:</span>
+            <span id="difficulty">-</span>
+          </div>
+          <div class="row">
+            <span class="label">Reason:</span>
+            <span id="reason" class="small">-</span>
+          </div>
+          <div style="margin-top: 0.5rem">
+            <span class="label">Question:</span>
+            <pre id="question">-</pre>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Your Answer</h2>
+          <p class="section-desc small">
+            Draft your system design answer below, then submit for evaluation and coaching.
+          </p>
+          <textarea id="answer"></textarea>
+          <div class="btn-group">
+            <button id="btn-submit" class="primary">
+              Submit Answer &amp; Get Feedback
+            </button>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Coach Feedback</h2>
+          <p class="section-desc small">
+            AI coach summary, strengths, weaknesses, and targeted practice suggestions.
+          </p>
+          <div id="coach-summary">-</div>
+          <div style="margin-top: 0.5rem">
+            <span class="label">What you did well:</span>
+            <ul id="coach-well"></ul>
+          </div>
+          <div style="margin-top: 0.5rem">
+            <span class="label">What to improve next time:</span>
+            <ul id="coach-next"></ul>
+          </div>
+          <div style="margin-top: 0.5rem">
+            <span class="label">Consistent patterns I notice:</span>
+            <ul id="coach-patterns"></ul>
+          </div>
+          <div style="margin-top: 0.5rem">
+            <span class="label">How to fix your mental model:</span>
+            <ul id="coach-mental-model"></ul>
+          </div>
+          <div style="margin-top: 0.5rem">
+            <span class="label">Next practice suggestion:</span>
+            <div id="coach-next-practice" class="small"></div>
+          </div>
+          <div style="margin-top: 0.5rem">
+            <span class="label">Recommended resources:</span>
+            <ul id="coach-resources"></ul>
+          </div>
+        </div>
+      </div>
+
+      <section class="card" id="history-card">
+        <h2>Session History</h2>
+        <p class="muted">View your previous system design attempts.</p>
+
+        <button id="load-history-btn">Load History</button>
+
+        <div class="history-controls" style="margin-top: 0.5rem; display:flex; gap:0.5rem; align-items:center;">
+          <button id="history-prev-btn" disabled>Previous</button>
+          <button id="history-next-btn" disabled>Next</button>
+          <span id="history-page-info" class="muted"></span>
+        </div>
+
+        <div id="history-message" class="muted" style="margin-top: 0.5rem;">
+          No history loaded yet.
+        </div>
+
+        <div style="margin-top: 1rem; overflow-x: auto;">
+          <table id="history-table" style="width: 100%; border-collapse: collapse; display: none;">
+            <thead>
+              <tr>
+                <th style="text-align:left; padding: 4px;">Created At</th>
+                <th style="text-align:left; padding: 4px;">Topic</th>
+                <th style="text-align:left; padding: 4px;">Score</th>
+                <th style="text-align:left; padding: 4px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody">
+              <!-- rows injected by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div id="history-details" class="card" style="margin-top: 1rem; display: none;">
+          <h3>Session Details</h3>
+          <div id="history-details-content" class="muted">
+            Select a session to view details.
+          </div>
+        </div>
+      </section>
+
+      <div class="column column-right">
+        <div class="section">
+          <h2>Your Stats</h2>
+          <p class="section-desc small">
+            Aggregate view of your system design practice progress.
+          </p>
+          <div class="btn-group">
+            <button id="btn-stats" class="secondary">Refresh Stats</button>
+          </div>
+          <div class="small" id="stats-summary">No stats loaded yet.</div>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Weak topics</div>
+              <div class="stat-value" id="stats-weak">-</div>
             </div>
-            <div class="small" id="stats-summary">No stats loaded yet.</div>
-            <div class="stats-grid">
-              <div class="stat-card">
-                <div class="stat-label">Weak topics</div>
-                <div class="stat-value" id="stats-weak">-</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-label">Strong topics</div>
-                <div class="stat-value" id="stats-strong">-</div>
-              </div>
+            <div class="stat-card">
+              <div class="stat-label">Strong topics</div>
+              <div class="stat-value" id="stats-strong">-</div>
             </div>
           </div>
+        </div>
 
-          <div class="section">
-            <h2>Auto Evaluation</h2>
-            <p class="section-desc small">
-              Raw score and extracted strengths/weaknesses from your latest answer.
-            </p>
-            <div class="row">
-              <span class="label">Score:</span>
-              <span id="score">-</span>
-            </div>
-            <div style="margin-top: 0.5rem">
-              <span class="label">Strengths:</span>
-              <ul id="strengths"></ul>
-            </div>
-            <div style="margin-top: 0.5rem">
-              <span class="label">Weaknesses:</span>
-              <ul id="weaknesses"></ul>
-            </div>
+        <div class="section">
+          <h2>Auto Evaluation</h2>
+          <p class="section-desc small">
+            Raw score and extracted strengths/weaknesses from your latest answer.
+          </p>
+          <div class="row">
+            <span class="label">Score:</span>
+            <span id="score">-</span>
           </div>
+          <div style="margin-top: 0.5rem">
+            <span class="label">Strengths:</span>
+            <ul id="strengths"></ul>
+          </div>
+          <div style="margin-top: 0.5rem">
+            <span class="label">Weaknesses:</span>
+            <ul id="weaknesses"></ul>
+          </div>
+        </div>
 
-          <div class="section">
-            <h2>Study Plan</h2>
-            <p class="section-desc small">
-              Generate a personalized plan based on your stats and weak topics.
-            </p>
-            <div class="btn-group">
-              <button id="btn-study-plan" class="secondary">Generate Study Plan</button>
-            </div>
-            <div id="study-plan-summary" class="small">
-              No study plan generated yet.
-            </div>
-            <div style="margin-top: 0.5rem">
-              <span class="label">Focus topics:</span>
-              <span id="study-plan-focus-topics" class="small">-</span>
-            </div>
-            <div style="margin-top: 0.5rem">
-              <span class="label">Practice suggestions:</span>
-              <ul id="study-plan-practice"></ul>
-            </div>
+        <div class="section">
+          <h2>Study Plan</h2>
+          <p class="section-desc small">
+            Generate a personalized plan based on your stats and weak topics.
+          </p>
+          <div class="btn-group">
+            <button id="btn-study-plan" class="secondary">Generate Study Plan</button>
+          </div>
+          <div id="study-plan-summary" class="small">
+            No study plan generated yet.
+          </div>
+          <div style="margin-top: 0.5rem">
+            <span class="label">Focus topics:</span>
+            <span id="study-plan-focus-topics" class="small">-</span>
+          </div>
+          <div style="margin-top: 0.5rem">
+            <span class="label">Practice suggestions:</span>
+            <ul id="study-plan-practice"></ul>
           </div>
         </div>
       </div>
     </div>
+  </div>
 
-    <script>
-      const SD_BASE_URL = "/api/v1/system-design";
-      const USERS_BASE_URL = "/api/v1/users";
+  <script>
+    const SD_BASE_URL = "/api/v1/system-design";
+    const USERS_BASE_URL = "/api/v1/users";
 
-      let currentSessionId = null;
+    let currentSessionId = null;
+    let historyPage = 1;
+    const HISTORY_PAGE_SIZE = 10;
+    let historyTotal = 0;
 
-      function text(id) {
-        return document.getElementById(id);
+    async function loadHistory(page = historyPage) {
+      const emailInput = document.getElementById("email"); // adjust if id differs
+      const email = emailInput ? emailInput.value.trim() : "";
+
+      const messageEl = document.getElementById("history-message");
+      const tableEl = document.getElementById("history-table");
+      const tbodyEl = document.getElementById("history-tbody");
+      const prevBtn = document.getElementById("history-prev-btn");
+      const nextBtn = document.getElementById("history-next-btn");
+      const pageInfo = document.getElementById("history-page-info");
+
+      if (!email) {
+        alert("Please enter your email before loading history.");
+        return;
       }
 
-      function list(id) {
-        return document.getElementById(id);
-      }
+      messageEl.textContent = "Loading history...";
+      tableEl.style.display = "none";
+      tbodyEl.innerHTML = "";
 
-      function setStatus(msg) {
-        text("status").textContent = msg || "";
-      }
-
-      async function getNextQuestion() {
-        const email = text("email").value.trim();
-        if (!email) {
-          alert("Please enter your email.");
-          return;
+      try {
+        const res = await fetch(
+          `/api/v1/users/${encodeURIComponent(
+            email
+          )}/system-design-history?page=${page}&pageSize=${HISTORY_PAGE_SIZE}`
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || "Failed to load history");
         }
-        setStatus("Requesting next question...");
-        try {
-          const res = await fetch(`${SD_BASE_URL}/next-question`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email }),
-          });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || `HTTP ${res.status}`);
-          }
-          const data = await res.json();
-          currentSessionId = data.sessionId;
+        const data = await res.json();
+        historyPage = data.page;
+        historyTotal = data.total;
 
-          text("topic").textContent = data.topic;
-          text("difficulty").textContent = data.difficulty;
-          text("reason").textContent = data.selectionReason || "-";
-          text("question").textContent = data.question;
-          text("answer").value = "";
-
-          text("score").textContent = "-";
-          list("strengths").innerHTML = "";
-          list("weaknesses").innerHTML = "";
-          text("coach-summary").textContent = "-";
-          list("coach-well").innerHTML = "";
-          list("coach-next").innerHTML = "";
-          text("coach-next-practice").textContent = "";
-
-          setStatus("Question loaded.");
-          // Pull latest stats automatically once email is known
-          loadStats(true).catch(() => {});
-        } catch (e) {
-          console.error(e);
-          setStatus("Failed to get question.");
-          alert("Error: " + e.message);
-        }
-      }
-
-      async function submitAnswer() {
-        const email = text("email").value.trim();
-        if (!email) {
-          alert("Please enter your email.");
-          return;
-        }
-        if (!currentSessionId) {
-          alert("Get a question first.");
-          return;
-        }
-        const answer = text("answer").value.trim();
-        if (!answer) {
-          alert("Please write an answer.");
+        if (!data.items || data.items.length === 0) {
+          messageEl.textContent = "No sessions found for this user yet.";
+          tableEl.style.display = "none";
+          pageInfo.textContent = "";
+          prevBtn.disabled = true;
+          nextBtn.disabled = true;
           return;
         }
 
-        setStatus("Submitting answer...");
-        try {
-          // 1) submit-answer
-          const resEval = await fetch(`${SD_BASE_URL}/submit-answer`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              sessionId: currentSessionId,
-              answer,
-            }),
-          });
-          if (!resEval.ok) {
-            const err = await resEval.json().catch(() => ({}));
-            throw new Error(err.error || `HTTP ${resEval.status}`);
+        // Render rows
+        tbodyEl.innerHTML = "";
+        data.items.forEach((item) => {
+          const tr = document.createElement("tr");
+          tr.classList.add("history-row");
+          tr.setAttribute("data-session-id", item.id);
+
+          const createdAt = item.createdAt
+            ? new Date(item.createdAt).toLocaleString()
+            : "-";
+          const topic = item.topic || "unknown";
+          const score = item.score != null ? item.score : "-";
+
+          tr.innerHTML = `
+          <td style="padding:4px;">${createdAt}</td>
+          <td style="padding:4px;">${topic}</td>
+          <td style="padding:4px;">${score}</td>
+          <td style="padding:4px;">
+            <button class="view-session-btn" data-session-id="${item.id}">
+              VIEW
+            </button>
+          </td>
+        `;
+
+          tbodyEl.appendChild(tr);
+        });
+
+        const shownSoFar =
+          (historyPage - 1) * HISTORY_PAGE_SIZE + data.items.length;
+        messageEl.textContent = `Showing ${shownSoFar} of ${data.total} sessions.`;
+        pageInfo.textContent = `Page ${historyPage}`;
+
+        tableEl.style.display = "table";
+
+        // Enable/disable pagination buttons
+        prevBtn.disabled = historyPage <= 1;
+        nextBtn.disabled = historyPage * HISTORY_PAGE_SIZE >= historyTotal;
+      } catch (err) {
+        console.error("Error loading history:", err);
+        messageEl.textContent = "Failed to load history.";
+        tableEl.style.display = "none";
+        const prevBtn = document.getElementById("history-prev-btn");
+        const nextBtn = document.getElementById("history-next-btn");
+        if (prevBtn) prevBtn.disabled = true;
+        if (nextBtn) nextBtn.disabled = true;
+      }
+    }
+
+    async function loadSessionDetails(sessionId) {
+      const detailsWrapper = document.getElementById("history-details");
+      const detailsContent = document.getElementById("history-details-content");
+
+      detailsWrapper.style.display = "block";
+      detailsContent.textContent = "Loading session details...";
+
+      try {
+        const res = await fetch(`/api/v1/system-design/session/${sessionId}`);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || "Failed to load session details");
+        }
+        const session = await res.json();
+
+        // ❷ Robust created_at handling (fixes "Invalid Date")
+        const createdAtRaw = session.created_at || session.createdAt;
+        const createdAt = createdAtRaw
+          ? new Date(createdAtRaw).toLocaleString()
+          : "Unknown";
+
+        const topic = session.topic || "unknown";
+        const score = session.score != null ? session.score : "-";
+        const question = session.prompt || "";
+        const answer = session.answer || "(no answer stored)";
+
+        detailsContent.innerHTML = `
+        <p><strong>Created At:</strong> ${createdAt}</p>
+        <p><strong>Topic:</strong> ${topic}</p>
+        <p><strong>Score:</strong> ${score}</p>
+        <hr />
+        <p><strong>Question:</strong></p>
+        <pre style="white-space: pre-wrap;">${escapeHtml(question)}</pre>
+        <p><strong>Your Answer:</strong></p>
+        <pre style="white-space: pre-wrap;">${escapeHtml(answer)}</pre>
+      `;
+      } catch (err) {
+        console.error("Error loading session details:", err);
+        detailsContent.textContent = "Failed to load session details.";
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const loadHistoryBtn = document.getElementById("load-history-btn");
+      if (loadHistoryBtn) {
+        loadHistoryBtn.addEventListener("click", () => loadHistory(1));
+      }
+
+      const prevBtn = document.getElementById("history-prev-btn");
+      const nextBtn = document.getElementById("history-next-btn");
+      if (prevBtn) {
+        prevBtn.addEventListener("click", () => {
+          if (historyPage > 1) {
+            loadHistory(historyPage - 1);
           }
-          const evalData = await resEval.json();
-          text("score").textContent = evalData.score ?? "-";
-
-          list("strengths").innerHTML = "";
-          (evalData.strengths || []).forEach((s) => {
-            const li = document.createElement("li");
-            li.textContent = s;
-            list("strengths").appendChild(li);
-          });
-
-          list("weaknesses").innerHTML = "";
-          (evalData.weaknesses || []).forEach((w) => {
-            const li = document.createElement("li");
-            li.textContent = w;
-            list("weaknesses").appendChild(li);
-          });
-
-          // 2) coach
-          const resCoach = await fetch(`${SD_BASE_URL}/coach`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email,
-              sessionId: currentSessionId,
-            }),
-          });
-          if (!resCoach.ok) {
-            const err = await resCoach.json().catch(() => ({}));
-            throw new Error(err.error || `HTTP ${resCoach.status}`);
+        });
+      }
+      if (nextBtn) {
+        nextBtn.addEventListener("click", () => {
+          if (historyPage * HISTORY_PAGE_SIZE < historyTotal) {
+            loadHistory(historyPage + 1);
           }
-          const coachData = await resCoach.json();
-          const coach = coachData.coachFeedback;
+        });
+      }
 
-          text("coach-summary").textContent = coach.summary || "-";
-
-          list("coach-well").innerHTML = "";
-          (coach.whatYouDidWell || []).forEach((item) => {
-            const li = document.createElement("li");
-            li.textContent = item;
-            list("coach-well").appendChild(li);
-          });
-
-          list("coach-next").innerHTML = "";
-          (coach.whatToImproveNextTime || []).forEach((item) => {
-            const li = document.createElement("li");
-            li.textContent = item;
-            list("coach-next").appendChild(li);
-          });
-
-          // Consistent patterns across sessions
-          list("coach-patterns").innerHTML = "";
-          if (coach.consistentPatterns && coach.consistentPatterns.length > 0) {
-            coach.consistentPatterns.forEach((pattern) => {
-              const li = document.createElement("li");
-              li.textContent = pattern;
-              list("coach-patterns").appendChild(li);
-            });
-          }
-
-          // Mental model fixes
-          list("coach-mental-model").innerHTML = "";
-          if (coach.mentalModelFix && coach.mentalModelFix.length > 0) {
-            coach.mentalModelFix.forEach((fix) => {
-              const li = document.createElement("li");
-              li.textContent = fix;
-              list("coach-mental-model").appendChild(li);
-            });
-          }
-
-          if (coach.nextPracticeSuggestion) {
-            const nps = coach.nextPracticeSuggestion;
-            text(
-              "coach-next-practice"
-            ).textContent = `Topic: ${nps.suggestedTopic} (${nps.suggestedDifficulty}) – ${nps.reason}`;
-          } else {
-            text("coach-next-practice").textContent = "";
-          }
-
-          list("coach-resources").innerHTML = "";
-
-          const recommendedFromCoach = coach?.recommendedResources || [];
-          const retrievedFromServer = coachData?.resources || [];
-
-          const resourcesToShow = recommendedFromCoach.length
-            ? recommendedFromCoach
-            : retrievedFromServer;
-
-          if (resourcesToShow.length > 0) {
-            resourcesToShow.forEach((resource) => {
-              const li = document.createElement("li");
-
-              const title = resource.title || "Resource";
-              const url = resource.url;
-              const snippet = resource.reason || resource.contentSnippet || "";
-
-              if (url) {
-                const link = document.createElement("a");
-                link.href = url;
-                link.textContent = title;
-                link.target = "_blank";
-                link.rel = "noopener noreferrer";
-                li.appendChild(link);
-              } else {
-                li.textContent = title;
+      const tbodyEl = document.getElementById("history-tbody");
+      if (tbodyEl) {
+        // ❸ Row selection + highlight
+        tbodyEl.addEventListener("click", (e) => {
+          const target = e.target;
+          if (
+            target instanceof HTMLElement &&
+            target.classList.contains("view-session-btn")
+          ) {
+            const sessionId = target.getAttribute("data-session-id");
+            if (sessionId) {
+              // Highlight selected row
+              const row = target.closest("tr");
+              if (row) {
+                document
+                  .querySelectorAll(".history-row.selected")
+                  .forEach((r) => r.classList.remove("selected"));
+                row.classList.add("selected");
               }
+              loadSessionDetails(sessionId);
+            }
+          }
+        });
+      }
+    });
 
-              if (snippet) {
-                li.appendChild(document.createTextNode(` — ${snippet}`));
-              }
+    function text(id) {
+      return document.getElementById(id);
+    }
 
-              list("coach-resources").appendChild(li);
-            });
-          } else {
+    function list(id) {
+      return document.getElementById(id);
+    }
+
+    function setStatus(msg) {
+      text("status").textContent = msg || "";
+    }
+
+    async function getNextQuestion() {
+      const email = text("email").value.trim();
+      if (!email) {
+        alert("Please enter your email.");
+        return;
+      }
+      setStatus("Requesting next question...");
+      try {
+        const res = await fetch(`${SD_BASE_URL}/next-question`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        currentSessionId = data.sessionId;
+
+        text("topic").textContent = data.topic;
+        text("difficulty").textContent = data.difficulty;
+        text("reason").textContent = data.selectionReason || "-";
+        text("question").textContent = data.question;
+        text("answer").value = "";
+
+        text("score").textContent = "-";
+        list("strengths").innerHTML = "";
+        list("weaknesses").innerHTML = "";
+        text("coach-summary").textContent = "-";
+        list("coach-well").innerHTML = "";
+        list("coach-next").innerHTML = "";
+        text("coach-next-practice").textContent = "";
+
+        setStatus("Question loaded.");
+        // Pull latest stats automatically once email is known
+        loadStats(true).catch(() => { });
+      } catch (e) {
+        console.error(e);
+        setStatus("Failed to get question.");
+        alert("Error: " + e.message);
+      }
+    }
+
+    async function submitAnswer() {
+      const email = text("email").value.trim();
+      if (!email) {
+        alert("Please enter your email.");
+        return;
+      }
+      if (!currentSessionId) {
+        alert("Get a question first.");
+        return;
+      }
+      const answer = text("answer").value.trim();
+      if (!answer) {
+        alert("Please write an answer.");
+        return;
+      }
+
+      setStatus("Submitting answer...");
+      try {
+        // 1) submit-answer
+        const resEval = await fetch(`${SD_BASE_URL}/submit-answer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: currentSessionId,
+            answer,
+          }),
+        });
+        if (!resEval.ok) {
+          const err = await resEval.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${resEval.status}`);
+        }
+        const evalData = await resEval.json();
+        text("score").textContent = evalData.score ?? "-";
+
+        list("strengths").innerHTML = "";
+        (evalData.strengths || []).forEach((s) => {
+          const li = document.createElement("li");
+          li.textContent = s;
+          list("strengths").appendChild(li);
+        });
+
+        list("weaknesses").innerHTML = "";
+        (evalData.weaknesses || []).forEach((w) => {
+          const li = document.createElement("li");
+          li.textContent = w;
+          list("weaknesses").appendChild(li);
+        });
+
+        // 2) coach
+        const resCoach = await fetch(`${SD_BASE_URL}/coach`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            sessionId: currentSessionId,
+          }),
+        });
+        if (!resCoach.ok) {
+          const err = await resCoach.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${resCoach.status}`);
+        }
+        const coachData = await resCoach.json();
+        const coach = coachData.coachFeedback;
+
+        text("coach-summary").textContent = coach.summary || "-";
+
+        list("coach-well").innerHTML = "";
+        (coach.whatYouDidWell || []).forEach((item) => {
+          const li = document.createElement("li");
+          li.textContent = item;
+          list("coach-well").appendChild(li);
+        });
+
+        list("coach-next").innerHTML = "";
+        (coach.whatToImproveNextTime || []).forEach((item) => {
+          const li = document.createElement("li");
+          li.textContent = item;
+          list("coach-next").appendChild(li);
+        });
+
+        // Consistent patterns across sessions
+        list("coach-patterns").innerHTML = "";
+        if (coach.consistentPatterns && coach.consistentPatterns.length > 0) {
+          coach.consistentPatterns.forEach((pattern) => {
             const li = document.createElement("li");
-            li.textContent = "No resources recommended at this time.";
-            li.style.color = "#888";
-            list("coach-resources").appendChild(li);
-          }
-
-          setStatus("Answer evaluated and feedback generated.");
-          // Update stats after an answered session
-          loadStats(true).catch(() => {});
-        } catch (e) {
-          console.error(e);
-          setStatus("Error while submitting answer.");
-          alert("Error: " + e.message);
-        }
-      }
-
-      async function loadStats(silent = false) {
-        const email = text("email").value.trim();
-        if (!email) {
-          alert("Please enter your email.");
-          return;
-        }
-
-        setStatus("Loading stats...");
-        try {
-          const res = await fetch(
-            `${USERS_BASE_URL}/${encodeURIComponent(
-              email
-            )}/system-design-stats`
-          );
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || `HTTP ${res.status}`);
-          }
-          const stats = await res.json();
-
-          const summaryEl = text("stats-summary");
-          if (stats.answeredSessions > 0) {
-            const avg =
-              typeof stats.averageScore === "number"
-                ? stats.averageScore.toFixed(1)
-                : "-";
-            summaryEl.textContent = `Sessions: ${
-              stats.answeredSessions
-            }, avg score: ${avg}, level: ${stats.overallLevel}`;
-          } else {
-            summaryEl.textContent = "No answered sessions yet.";
-          }
-
-          const weak =
-            stats.weakTopics && stats.weakTopics.length
-              ? stats.weakTopics.join(", ")
-              : "none";
-          const strong =
-            stats.strongTopics && stats.strongTopics.length
-              ? stats.strongTopics.join(", ")
-              : "none";
-
-          text("stats-weak").textContent = weak;
-          text("stats-strong").textContent = strong;
-
-          setStatus("Stats loaded.");
-        } catch (e) {
-          console.error(e);
-          setStatus("Failed to load stats.");
-          if (!silent) {
-            alert("Stats error: " + e.message);
-          }
-        }
-      }
-
-      async function loadStudyPlan() {
-        const email = text("email").value.trim();
-        if (!email) {
-          alert("Please enter your email.");
-          return;
-        }
-
-        setStatus("Generating study plan...");
-        try {
-          const res = await fetch(
-            `${USERS_BASE_URL}/${encodeURIComponent(email)}/system-design-study-plan`
-          );
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || `HTTP ${res.status}`);
-          }
-          const plan = await res.json();
-
-          // Summary
-          text("study-plan-summary").textContent =
-            plan.profileSummary || "No study plan generated yet.";
-
-          // Focus topics
-          const focus =
-            plan.focusTopics && plan.focusTopics.length
-              ? plan.focusTopics.join(", ")
-              : "-";
-          text("study-plan-focus-topics").textContent = focus;
-
-          // Practice suggestions with hyperlink rendering
-          const practiceList = document.getElementById("study-plan-practice");
-          practiceList.innerHTML = "";
-          (plan.practiceSuggestions || []).forEach((s) => {
-            renderSuggestionWithLink(practiceList, s);
+            li.textContent = pattern;
+            list("coach-patterns").appendChild(li);
           });
-
-          setStatus("Study plan generated.");
-        } catch (e) {
-          console.error(e);
-          setStatus("Failed to generate study plan.");
-          alert("Study plan error: " + e.message);
         }
-      }
 
-      function renderSuggestionWithLink(listElement, suggestion) {
-        const li = document.createElement("li");
+        // Mental model fixes
+        list("coach-mental-model").innerHTML = "";
+        if (coach.mentalModelFix && coach.mentalModelFix.length > 0) {
+          coach.mentalModelFix.forEach((fix) => {
+            const li = document.createElement("li");
+            li.textContent = fix;
+            list("coach-mental-model").appendChild(li);
+          });
+        }
 
-        // Match: some text "Title" (URL) rest of text
-        const regex = /(.*)"([^"]+)"\s*\(([^)]+)\)(.*)/;
-        const match = suggestion.match(regex);
-
-        if (match) {
-          const [, before, title, url, after] = match;
-
-          if (before.trim()) {
-            li.appendChild(document.createTextNode(before + " "));
-          }
-
-          const a = document.createElement("a");
-          a.href = url;
-          a.textContent = title;
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
-          li.appendChild(a);
-
-          if (after.trim()) {
-            li.appendChild(document.createTextNode(after));
-          }
+        if (coach.nextPracticeSuggestion) {
+          const nps = coach.nextPracticeSuggestion;
+          text(
+            "coach-next-practice"
+          ).textContent = `Topic: ${nps.suggestedTopic} (${nps.suggestedDifficulty}) – ${nps.reason}`;
         } else {
-          // Fallback: no pattern, just render plain text
-          li.textContent = suggestion;
+          text("coach-next-practice").textContent = "";
         }
 
-        listElement.appendChild(li);
+        list("coach-resources").innerHTML = "";
+
+        const recommendedFromCoach = coach?.recommendedResources || [];
+        const retrievedFromServer = coachData?.resources || [];
+
+        const resourcesToShow = recommendedFromCoach.length
+          ? recommendedFromCoach
+          : retrievedFromServer;
+
+        if (resourcesToShow.length > 0) {
+          resourcesToShow.forEach((resource) => {
+            const li = document.createElement("li");
+
+            const title = resource.title || "Resource";
+            const url = resource.url;
+            const snippet = resource.reason || resource.contentSnippet || "";
+
+            if (url) {
+              const link = document.createElement("a");
+              link.href = url;
+              link.textContent = title;
+              link.target = "_blank";
+              link.rel = "noopener noreferrer";
+              li.appendChild(link);
+            } else {
+              li.textContent = title;
+            }
+
+            if (snippet) {
+              li.appendChild(document.createTextNode(` — ${snippet}`));
+            }
+
+            list("coach-resources").appendChild(li);
+          });
+        } else {
+          const li = document.createElement("li");
+          li.textContent = "No resources recommended at this time.";
+          li.style.color = "#888";
+          list("coach-resources").appendChild(li);
+        }
+
+        setStatus("Answer evaluated and feedback generated.");
+        // Update stats after an answered session
+        loadStats(true).catch(() => { });
+      } catch (e) {
+        console.error(e);
+        setStatus("Error while submitting answer.");
+        alert("Error: " + e.message);
       }
-            
-      document
-        .getElementById("btn-study-plan")
-        .addEventListener("click", loadStudyPlan);
-      const emailInput = document.getElementById("email");
+    }
 
-      document
-        .getElementById("btn-next")
-        .addEventListener("click", getNextQuestion);
-      document
-        .getElementById("btn-submit")
-        .addEventListener("click", submitAnswer);
-      document
-        .getElementById("btn-stats")
-        .addEventListener("click", () => loadStats(false));
-
-      // Auto-refresh stats whenever email is changed or user presses Enter
-      emailInput.addEventListener("blur", () => loadStats(true));
-      emailInput.addEventListener("change", () => loadStats(true));
-      emailInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          loadStats(true);
+    async function loadStats(silent = false) {
+      const email = text("email").value.trim();
+      if (!email) {
+        // In "silent" mode (blur/change/Enter), just no-op.
+        if (!silent) {
+          alert("Please enter your email.");
         }
-      });
-    </script>
-  </body>
+        return;
+      }
+
+      setStatus("Loading stats...");
+      try {
+        const res = await fetch(
+          `${USERS_BASE_URL}/${encodeURIComponent(
+            email
+          )}/system-design-stats`
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
+        const stats = await res.json();
+
+        const summaryEl = text("stats-summary");
+        if (stats.answeredSessions > 0) {
+          const avg =
+            typeof stats.averageScore === "number"
+              ? stats.averageScore.toFixed(1)
+              : "-";
+          summaryEl.textContent = `Sessions: ${stats.answeredSessions}, avg score: ${avg}, level: ${stats.overallLevel}`;
+        } else {
+          summaryEl.textContent = "No answered sessions yet.";
+        }
+
+        const weak =
+          stats.weakTopics && stats.weakTopics.length
+            ? stats.weakTopics.join(", ")
+            : "none";
+        const strong =
+          stats.strongTopics && stats.strongTopics.length
+            ? stats.strongTopics.join(", ")
+            : "none";
+
+        text("stats-weak").textContent = weak;
+        text("stats-strong").textContent = strong;
+
+        setStatus("Stats loaded.");
+      } catch (e) {
+        console.error(e);
+        setStatus("Failed to load stats.");
+        if (!silent) {
+          alert("Stats error: " + e.message);
+        }
+      }
+    }
+
+    async function loadStudyPlan() {
+      const email = text("email").value.trim();
+      if (!email) {
+        alert("Please enter your email.");
+        return;
+      }
+
+      setStatus("Generating study plan...");
+      try {
+        const res = await fetch(
+          `${USERS_BASE_URL}/${encodeURIComponent(email)}/system-design-study-plan`
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
+        const plan = await res.json();
+
+        // Summary
+        text("study-plan-summary").textContent =
+          plan.profileSummary || "No study plan generated yet.";
+
+        // Focus topics
+        const focus =
+          plan.focusTopics && plan.focusTopics.length
+            ? plan.focusTopics.join(", ")
+            : "-";
+        text("study-plan-focus-topics").textContent = focus;
+
+        // Practice suggestions with hyperlink rendering
+        const practiceList = document.getElementById("study-plan-practice");
+        practiceList.innerHTML = "";
+        (plan.practiceSuggestions || []).forEach((s) => {
+          renderSuggestionWithLink(practiceList, s);
+        });
+
+        setStatus("Study plan generated.");
+      } catch (e) {
+        console.error(e);
+        setStatus("Failed to generate study plan.");
+        alert("Study plan error: " + e.message);
+      }
+    }
+
+    function renderSuggestionWithLink(listElement, suggestion) {
+      const li = document.createElement("li");
+
+      // Match: some text "Title" (URL) rest of text
+      const regex = /(.*)"([^"]+)"\s*\(([^)]+)\)(.*)/;
+      const match = suggestion.match(regex);
+
+      if (match) {
+        const [, before, title, url, after] = match;
+
+        if (before.trim()) {
+          li.appendChild(document.createTextNode(before + " "));
+        }
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.textContent = title;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        li.appendChild(a);
+
+        if (after.trim()) {
+          li.appendChild(document.createTextNode(after));
+        }
+      } else {
+        // Fallback: no pattern, just render plain text
+        li.textContent = suggestion;
+      }
+
+      listElement.appendChild(li);
+    }
+
+    document
+      .getElementById("btn-study-plan")
+      .addEventListener("click", loadStudyPlan);
+    const emailInput = document.getElementById("email");
+
+    document
+      .getElementById("btn-next")
+      .addEventListener("click", getNextQuestion);
+    document
+      .getElementById("btn-submit")
+      .addEventListener("click", submitAnswer);
+    document
+      .getElementById("btn-stats")
+      .addEventListener("click", () => loadStats(false));
+
+    // Auto-refresh stats whenever email is changed or user presses Enter
+    emailInput.addEventListener("blur", () => loadStats(true));
+    emailInput.addEventListener("change", () => loadStats(true));
+    emailInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        loadStats(true);
+      }
+    });
+  </script>
+</body>
+
 </html>

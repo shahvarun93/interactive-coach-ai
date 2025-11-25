@@ -12,6 +12,14 @@ import { z } from 'zod';
 
 const AI_LOG_DEBUG = process.env.AI_LOG_DEBUG === '1';
 
+// at top of file
+export class OpenAiQuotaError extends Error {
+  constructor(message: string, public original?: unknown) {
+    super(message);
+    this.name = "OpenAiQuotaError";
+  }
+}
+
 async function timeOpenAiCall<T>(
   label: string,
   model: string,
