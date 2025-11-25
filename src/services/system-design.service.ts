@@ -18,6 +18,7 @@ import { TopicMistakePatterns } from "../interfaces/TopicMistakes";
 import { SystemDesignStudyPlan } from "../interfaces/SystemDesignStudyPlan";
 import { SDResource } from "../interfaces/SDResource";
 import { CACHE_DEBUG, cacheGet, cacheSet } from "../infra/redis";
+import { SystemDesignHistoryItem, SystemDesignHistoryPage } from "../interfaces/SystemDesignHistory";
 
 export async function submitSystemDesignAnswer(
   sessionId: string,
@@ -571,6 +572,43 @@ export async function getSystemDesignPlanForUser(
     console.log("[study-plan] cache SET", { userId, cacheKey });
   }
   return plan;
+}
+
+export async function getSystemDesignHistoryForUser(
+  userId: string,
+  page: number = 1,
+  pageSize: number = 10
+): Promise<SystemDesignHistoryPage> {
+  const safePage = page < 1 ? 1 : page;
+  const safePageSize = pageSize > 50 ? 50 : pageSize; // cap to avoid abuse
+  const offset = (safePage - 1) * safePageSize;
+
+  const [total, sessions] = await Promise.all([
+    systemDesignDao.countSystemDesignSessionsForUser(userId),
+    systemDesignDao.findSystemDesignSessionsForUserPaginated(userId, safePageSize, offset),
+  ]);
+
+  const items: SystemDesignHistoryItem[] = sessions.map((s) => ({
+    id: s.id,
+    topic: s.topic ?? "unknown",
+    question: s.prompt ?? "",
+    answerPreview: s.answer
+      ? s.answer.length > 200
+        ? s.answer.slice(0, 200) + "..."
+        : s.answer
+      : null,
+    score: s.score,
+    createdAt: s.created_at,
+    updatedAt: s.updated_at,
+  }));
+
+  return {
+    userId,
+    total,
+    page: safePage,
+    pageSize: safePageSize,
+    items,
+  };
 }
 
 function labelForAverageScore(avg: number): TopicLabel {

@@ -2,6 +2,7 @@ import { query } from '../db';
 import { SystemDesignSession } from '../interfaces/SystemDesignSession';
 import { UserTopicStatsRow } from '../interfaces/UserTopicStatsRow';
 import { UserStatsRow } from '../interfaces/UserStatsRow';
+import { SystemDesignSessionRow } from '../interfaces/SystemDesignSessionRow';
 
 export async function createSystemDesignSession(
     userId: string,
@@ -133,6 +134,7 @@ export async function findSystemDesignSessionById(
   const result = await query(sql, [sessionId]);
   return result.rows[0] ?? null;
 }
+
 // If you later want “coach me on my latest attempt”:
 export async function findLatestSystemDesignSessionForUser(
   userId: string
@@ -159,6 +161,44 @@ export async function findSystemDesignSessionsForUser(
   `;
   const result = await query(sql, [userId]);
   return result.rows;
+}
+
+export async function findSystemDesignSessionsForUserPaginated(
+  userId: string,
+  limit: number,
+  offset: number
+): Promise<SystemDesignSession[]> {
+  const sql = `
+    SELECT
+      id,
+      user_id,
+      prompt,
+      answer,
+      score,
+      strengths,
+      weaknesses,
+      created_at,
+      updated_at,
+      topic
+    FROM system_design_sessions_tbl
+    WHERE user_id = $1
+    ORDER BY created_at DESC
+    LIMIT $2 OFFSET $3
+  `;
+  const { rows } = await query(sql, [userId, limit, offset]);
+  return rows as SystemDesignSession[];
+}
+
+export async function countSystemDesignSessionsForUser(
+  userId: string
+): Promise<number> {
+  const sql = `
+    SELECT COUNT(*)::int AS count
+    FROM system_design_sessions_tbl
+    WHERE user_id = $1
+  `;
+  const { rows } = await query(sql, [userId]);
+  return rows[0]?.count ?? 0;
 }
 
 export async function findRecentAnsweredSessionsByTopic(

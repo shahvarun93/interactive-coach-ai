@@ -1,6 +1,7 @@
 // src/routes/users.ts
 import { Router } from 'express';
 import * as usersService from '../services/users.service';
+import * as systemDesignService from '../services/system-design.service';
 
 const router = Router();
 
@@ -66,6 +67,33 @@ router.get("/:email/system-design-study-plan", async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
     res.status(500).json({ error: "Failed to generate study plan" });
+  }
+});
+
+router.get("/:email/system-design-history", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+    const pageSize = req.query.pageSize
+      ? parseInt(req.query.pageSize as string, 10)
+      : 10;
+
+    // Resolve user and get userId
+    const user = await usersService.findUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const history = await systemDesignService.getSystemDesignHistoryForUser(
+      user.id,
+      page,
+      pageSize
+    );
+
+    res.json(history);
+  } catch (e: any) {
+    console.error("Error fetching system design history:", e);
+    res.status(500).json({ error: "Failed to fetch system design history" });
   }
 });
 
