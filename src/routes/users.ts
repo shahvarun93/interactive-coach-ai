@@ -1,35 +1,38 @@
 // src/routes/users.ts
-import { Router } from 'express';
-import * as usersService from '../services/users.service';
-import * as systemDesignService from '../services/system-design.service';
+import { Router } from "express";
+import * as usersService from "../services/users.service";
+import * as systemDesignService from "../services/system-design.service";
+import { OpenAiQuotaError } from "../infra/openaiClient";
 
 const router = Router();
 
-router.get('/', async (_req, res) => {
+router.get("/", async (_req, res) => {
   try {
     const users = await usersService.getAllUsers();
     res.json(users);
   } catch (err) {
-    console.error('Error fetching users:', err);
-    res.status(500).json({ error: 'Failed to fetch users' });
+    console.error("Error fetching users:", err);
+    res.status(500).json({ error: "Failed to fetch users" });
   }
 });
 
-router.post('/', async (req, res) => {
+router.post("/", async (req, res) => {
   try {
     const { email, name } = req.body;
     if (!email) {
-      return res.status(400).json({ error: 'email is required' });
+      return res.status(400).json({ error: "email is required" });
     }
 
     const user = await usersService.createUser(email, name);
     res.status(201).json(user);
   } catch (err: any) {
-    console.error('Error creating user:', err);
-    if (err.message === 'USER_EXISTS') {
-      return res.status(409).json({ error: 'User with this email already exists' });
+    console.error("Error creating user:", err);
+    if (err.message === "USER_EXISTS") {
+      return res
+        .status(409)
+        .json({ error: "User with this email already exists" });
     }
-    res.status(500).json({ error: 'Failed to create user' });
+    res.status(500).json({ error: "Failed to create user" });
   }
 });
 
@@ -63,6 +66,13 @@ router.get("/:email/system-design-study-plan", async (req, res) => {
     res.json(plan);
   } catch (e: any) {
     console.error("Error generating study plan:", e);
+    if (e instanceof OpenAiQuotaError) {
+      return res.status(503).json({
+        error:
+          "AI quota exceeded. Study plan generation is temporarily unavailable. Please update your OpenAI API billing or try again later.",
+      });
+    }
+
     if (e.message === "USER_NOT_FOUND") {
       return res.status(404).json({ error: "User not found" });
     }

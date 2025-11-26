@@ -223,8 +223,7 @@ router.post("/coach", async (req, res) => {
     if (err instanceof OpenAiQuotaError) {
       return res.status(503).json({
         error:
-          "AI quota exceeded. Coach feedback is temporarily unavailable. " +
-          "Please update your OpenAI billing or try again later.",
+          "AI quota exceeded. Coach feedback is temporarily unavailable. Please update your OpenAI API billing or try again later.",
       });
     }
 

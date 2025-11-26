@@ -1,22 +1,24 @@
-import OpenAI from 'openai';
+import OpenAI from "openai";
 import type {
   Response,
   ResponseCreateParams,
-} from 'openai/resources/responses/responses';
+} from "openai/resources/responses/responses";
 /* Zod is in openAiClient.ts to make the AI output reliable and type-safe instead of “whatever the model felt like returning.” 
 Think of it as a strict bouncer at the door: 
 if the JSON isn’t exactly what we expect, 
 we reject it early with a clear error rather than letting bugs leak through the app.
 */
-import { z } from 'zod';
+import { z } from "zod";
 
-const AI_LOG_DEBUG = process.env.AI_LOG_DEBUG === '1';
+const AI_LOG_DEBUG = process.env.AI_LOG_DEBUG === "1";
 
-// at top of file
 export class OpenAiQuotaError extends Error {
-  constructor(message: string, public original?: unknown) {
+  public original: unknown;
+
+  constructor(message: string, original?: unknown) {
     super(message);
     this.name = "OpenAiQuotaError";
+    this.original = original;
   }
 }
 
@@ -30,29 +32,43 @@ async function timeOpenAiCall<T>(
     const result = await fn();
     if (AI_LOG_DEBUG) {
       const ms = Date.now() - start;
-      console.log('[ai]', label, 'model=', model, 'latency_ms=', ms);
+      console.log("[ai]", label, "model=", model, "latency_ms=", ms);
     }
+    const elapsed = Date.now() - start;
+    console.log(`[ai] ${label} ok after_ms=${elapsed}`);
     return result;
-  } catch (err) {
+  } catch (err: any) {
     if (AI_LOG_DEBUG) {
       const ms = Date.now() - start;
       console.warn(
-        '[ai]',
+        "[ai]",
         label,
-        'model=',
+        "model=",
         model,
-        'error after_ms=',
+        "error after_ms=",
         ms,
-        'msg=',
-        (err as Error).message,
+        "msg=",
+        (err as Error).message
       );
     }
+    const elapsed = Date.now() - start;
+    const msg = err?.message || String(err);
+    const status = err?.status;
+    const code = err?.code ?? err?.error?.code;
+
+    console.error(`[ai] ${label} error after_ms=${elapsed} msg=${msg}`);
+
+    // Normalize "insufficient_quota" into a specific error type
+    if (status === 429 && code === "insufficient_quota") {
+      throw new OpenAiQuotaError(msg, err);
+    }
+
     throw err;
   }
 }
 
 export type Message = {
-  role: 'system' | 'user';
+  role: "system" | "user";
   content: string;
 };
 
@@ -60,16 +76,16 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-function toResponseInput(messages: Message[]): ResponseCreateParams['input'] {
+function toResponseInput(messages: Message[]): ResponseCreateParams["input"] {
   return messages.map((message) => ({
     role: message.role,
     content: [
       {
-        type: 'input_text',
+        type: "input_text",
         text: message.content,
       },
     ],
-  })) as ResponseCreateParams['input'];
+  })) as ResponseCreateParams["input"];
 }
 
 /*
@@ -84,15 +100,20 @@ This function walks the output:
 */
 function extractText(response: Response): string {
   for (const item of response.output ?? []) {
-    if ('content' in item && Array.isArray((item as { content?: unknown }).content)) {
-      for (const chunk of (item as { content: { type: string; text?: string }[] }).content) {
-        if (chunk.type === 'output_text' && chunk.text) {
+    if (
+      "content" in item &&
+      Array.isArray((item as { content?: unknown }).content)
+    ) {
+      for (const chunk of (
+        item as { content: { type: string; text?: string }[] }
+      ).content) {
+        if (chunk.type === "output_text" && chunk.text) {
           return chunk.text.trim();
         }
       }
     }
   }
-  throw new Error('OpenAI response did not contain output_text content');
+  throw new Error("OpenAI response did not contain output_text content");
 }
 
 /*
@@ -105,7 +126,7 @@ Flow:
 	6.	If invalid → throw a clear error
 */
 async function openAiClientJsonResponse<T>({
-  model = 'gpt-4.1-mini',
+  model = "gpt-4.1-mini",
   messages,
   schema,
   temperature,
@@ -115,15 +136,12 @@ async function openAiClientJsonResponse<T>({
   schema: z.ZodSchema<T>;
   temperature?: number;
 }): Promise<T> {
-  const response = await timeOpenAiCall(
-    'json_response',
-    model,
-    () =>
-      client.responses.create({
-        model,
-        input: toResponseInput(messages),
-        temperature,
-      }),
+  const response = await timeOpenAiCall("json_response", model, () =>
+    client.responses.create({
+      model,
+      input: toResponseInput(messages),
+      temperature,
+    })
   );
 
   const raw = extractText(response);
@@ -132,13 +150,15 @@ async function openAiClientJsonResponse<T>({
     return schema.parse(JSON.parse(raw));
   } catch (err) {
     throw new Error(
-      `Failed to parse or validate OpenAI JSON response: ${(err as Error).message}`,
+      `Failed to parse or validate OpenAI JSON response: ${
+        (err as Error).message
+      }`
     );
   }
 }
 
 async function openAiClientTextResponse({
-  model = 'gpt-4.1-mini',
+  model = "gpt-4.1-mini",
   messages,
   temperature,
 }: {
@@ -146,15 +166,12 @@ async function openAiClientTextResponse({
   messages: Message[];
   temperature?: number;
 }): Promise<string> {
-  const response = await timeOpenAiCall(
-    'text_response',
-    model,
-    () =>
-      client.responses.create({
-        model,
-        input: toResponseInput(messages),
-        temperature,
-      }),
+  const response = await timeOpenAiCall("text_response", model, () =>
+    client.responses.create({
+      model,
+      input: toResponseInput(messages),
+      temperature,
+    })
   );
 
   return extractText(response);
@@ -167,14 +184,11 @@ export async function createEmbeddingForText(input: string): Promise<number[]> {
 
   const model = "text-embedding-3-small";
 
-  const response = await timeOpenAiCall(
-    'embedding_create',
-    model,
-    () =>
-      client.embeddings.create({
-        model,
-        input,
-      }),
+  const response = await timeOpenAiCall("embedding_create", model, () =>
+    client.embeddings.create({
+      model,
+      input,
+    })
   );
 
   const embedding = response.data[0]?.embedding;
@@ -187,14 +201,11 @@ export async function createEmbeddingForText(input: string): Promise<number[]> {
 export async function embedText(text: string): Promise<number[]> {
   const model = "text-embedding-3-small";
 
-  const resp = await timeOpenAiCall(
-    'embedding_text',
-    model,
-    () =>
-      client.embeddings.create({
-        model,
-        input: text,
-      }),
+  const resp = await timeOpenAiCall("embedding_text", model, () =>
+    client.embeddings.create({
+      model,
+      input: text,
+    })
   );
 
   return resp.data[0].embedding;
