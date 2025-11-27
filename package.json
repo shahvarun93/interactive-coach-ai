@@ -5,6 +5,7 @@
     "seed:sd": "ts-node scripts/seed-sd-resources.ts"
   },
   "dependencies": {
+    "@google/genai": "^1.30.0",
     "@upstash/redis": "^1.35.6",
     "axios": "^1.13.2",
     "dotenv": "^17.2.3",

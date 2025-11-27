@@ -3,7 +3,7 @@ import { Router } from "express";
 import * as systemDesignService from "../services/system-design.service";
 import * as usersDao from "../dao/users.dao";
 import { findUserByEmail } from "../services/users.service";
-import { OpenAiQuotaError } from "../infra/openaiClient"; // adjust path if needed
+import { AiQuotaError } from "../infra/aiClient"; // adjust path if needed
 
 const router = Router();
 
@@ -220,7 +220,7 @@ router.post("/coach", async (req, res) => {
   } catch (err: any) {
     console.error("Error generating coach feedback:", err);
 
-    if (err instanceof OpenAiQuotaError) {
+    if (err instanceof AiQuotaError) {
       return res.status(503).json({
         error:
           "AI quota exceeded. Coach feedback is temporarily unavailable. Please update your OpenAI API billing or try again later.",

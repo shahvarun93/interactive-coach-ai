@@ -1,20 +1,18 @@
 import dotenv from 'dotenv';
-import OpenAI from 'openai';
 import { Pool } from 'pg';
-import { createEmbeddingForText } from '../src/infra/openaiClient';
+import { createEmbeddingForText } from '../src/infra/aiClient';
 import { SDResource } from '../src/interfaces/SDResource';
 
 dotenv.config();
-
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error('OPENAI_API_KEY missing for embeddings seeding');
-}
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL missing for embeddings seeding');
 }
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const AI_PROVIDER = process.env.AI_PROVIDER || 'openai';
+console.info("AI Provider:" +AI_PROVIDER);
+const TARGET_EMBED_COLUMN = AI_PROVIDER === 'gemini' ? 'embedding_gemini' : 'embedding_openai';
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
@@ -79,41 +77,6 @@ const RESOURCES: SeedResource[] = [
   },
 ];
 
-async function seed() {
-  for (const resource of RESOURCES) {
-    let embedding: number[] | null = null;
-    try {
-      embedding = await embed(`${resource.title}\n${resource.content}`);
-    } catch (e: any) {
-      console.warn("Embedding failed, inserting null for now:", resource.title);
-    }
-
-    await pool.query(
-      `
-      INSERT INTO sd_resources (title, url, topic, content, embedding)
-      VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (title) DO UPDATE
-        SET url = EXCLUDED.url,
-            topic = EXCLUDED.topic,
-            content = EXCLUDED.content,
-            embedding = COALESCE(EXCLUDED.embedding, sd_resources.embedding),
-            created_at = NOW()
-      `,
-      [resource.title, resource.url, resource.topic, resource.content, embedding]
-    );
-    console.log(`Seeded resource: ${resource.title}`);
-  }
-}
-
-// Embedding = turning text into a vector so we can do similarity search.
-async function embed(text: string): Promise<number[]> {
-  const result = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: text,
-  });
-  return result.data[0].embedding;
-}
-
 async function seedEmbeddings() {
   console.log("Starting sd_resources embeddings seeding...");
 
@@ -141,7 +104,7 @@ async function seedEmbeddings() {
       await pool.query(
         `
         UPDATE sd_resources
-        SET embedding = $1::vector
+        SET ${TARGET_EMBED_COLUMN} = $1::vector
         WHERE id = $2
         `,
         [vectorLiteral, row.id]
@@ -178,7 +141,7 @@ async function fetchResourcesWithoutEmbedding(limit = 5): Promise<SDResource[]> 
     `
     SELECT id, topic, title, content
     FROM sd_resources
-    WHERE embedding IS NULL
+    WHERE ${TARGET_EMBED_COLUMN} IS NULL
     ORDER BY created_at ASC
     LIMIT $1
     `,
@@ -204,4 +167,3 @@ seedEmbeddings()
   .finally(async () => {
     await pool.end();
   });
-

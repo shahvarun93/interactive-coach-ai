@@ -34,6 +34,20 @@
             "console": "integratedTerminal", // <- important for readline
             "restart": false,
             "skipFiles": ["<node_internals>/**"]
-          }
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug Seeding Embeddings (seed-sd)",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "seed:sd"
+            ],
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "restart": false,
+            "skipFiles": ["<node_internals>/**"]
+        },
     ]
 }

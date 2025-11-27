@@ -7,7 +7,7 @@ It has 3 jobs:
 	3.	Suggest the next topic & difficulty based on user stats (agent policy)
 */
 import { z } from "zod";
-import { responsesClient, embedText } from "../infra/openaiClient";
+import { responsesClient, embedText } from "../infra/aiClient";
 import { GeneratedSDQuestion } from "../interfaces/GeneratedSDQuestion";
 import { SystemDesignCoachFeedback } from "../interfaces/SystemDesignCoach";
 import { CoachFeedbackArgs } from "../interfaces/CoachFeedbackArgs";
@@ -21,16 +21,18 @@ const QuestionResponseSchema = z.object({
 });
 
 const CoachFeedbackSchema = z.object({
-  summary: z.string(),
+  // Let this be optional – we’ll synthesize it if missing
+  summary: z.string().optional(),
 
-  // 🔹 New: recurring patterns across sessions
+  // recurring patterns across sessions
   consistentPatterns: z.array(z.string()).optional().default([]),
 
-  // 🔹 New: how to fix the user’s mental model
+  // how to fix the user’s mental model
   mentalModelFix: z.array(z.string()).optional().default([]),
 
-  whatYouDidWell: z.array(z.string()),
-  whatToImproveNextTime: z.array(z.string()),
+  // Also optional; we’ll fall back from strengths/weaknesses
+  whatYouDidWell: z.array(z.string()).optional(),
+  whatToImproveNextTime: z.array(z.string()).optional(),
 
   nextPracticeSuggestion: z
     .object({
@@ -162,8 +164,7 @@ Return exactly the question text only.
     "Design a URL shortener like TinyURL for 100M daily active users.";
 
   try {
-    const payload = await responsesClient.openAiClientJsonResponse({
-      model: "gpt-4.1-mini",
+    const payload = await responsesClient.aiClientJsonResponse({
       messages: [
         {
           role: "system",
@@ -300,25 +301,36 @@ Rules:
         }))
       : [];
 
-  const userPayload = {
-    topic,
-    difficulty,
-    question,
-    answer,
-    score,
-    strengths,
-    weaknesses,
-    resources: resourcesSummary,
-    topicMistakePatterns,
-    ragContext,
-  };
-
-  const userPrompt = JSON.stringify(userPayload, null, 2);
+      const userPayload = {
+        topic,
+        difficulty,
+        question,
+        answer,
+        score,
+        strengths,
+        weaknesses,
+        resources: resourcesSummary,
+        topicMistakePatterns,
+        ragContext,
+      };
+      
+      const userPrompt = `
+      Here is the INPUT data for this system design session as JSON.
+      
+      Use it ONLY as input context. DO NOT copy this JSON structure in your response.
+      
+      INPUT_JSON:
+      ${JSON.stringify(userPayload, null, 2)}
+      
+      Using this input, produce ONLY the feedback JSON described in the system message:
+      - Do NOT include the original question or answer in the output.
+      - Do NOT wrap your result in an "output" or "result" field.
+      - Return exactly one JSON object with the required fields.
+      `.trim();
 
   try {
     const payload =
-      await responsesClient.openAiClientJsonResponse<CoachFeedbackResponse>({
-        model: "gpt-4.1-mini",
+      await responsesClient.aiClientJsonResponse<CoachFeedbackResponse>({
         temperature: 0.4, //	•	Coaching should be consistent and grounded, not creative. 	•	Low temp = less hallucination.
         messages: [
           { role: "system", content: systemPrompt },
@@ -386,8 +398,7 @@ Policy:
 Return strict JSON with topic, difficulty, reason.
 `.trim();
 
-  return responsesClient.openAiClientJsonResponse({
-    model: "gpt-4.1-mini",
+  return responsesClient.aiClientJsonResponse({
     temperature: 0.3, // Topic selection should be stable policy, not random creativity.
     messages: [
       { role: "system", content: systemPrompt },
@@ -455,8 +466,7 @@ Output STRICTLY as JSON following this schema:
   };
 
   const result =
-    await responsesClient.openAiClientJsonResponse<StudyPlanResponse>({
-      model: "gpt-4.1-mini",
+    await responsesClient.aiClientJsonResponse<StudyPlanResponse>({
       temperature: 0.4,
       messages: [
         { role: "system", content: systemPrompt },

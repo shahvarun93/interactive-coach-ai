@@ -133,7 +133,7 @@ export async function createCoachFeedbackForSession(
         updatedAt: updatedAtKeyPart,
       });
     }
-    return cached;
+    // return cached;
   }
   if (CACHE_DEBUG) {
     console.log("[coach] cache MISS", {

@@ -2,7 +2,7 @@
 import { Router } from "express";
 import * as usersService from "../services/users.service";
 import * as systemDesignService from "../services/system-design.service";
-import { OpenAiQuotaError } from "../infra/openaiClient";
+import { AiQuotaError } from "../infra/aiClient";
 
 const router = Router();
 
@@ -66,7 +66,7 @@ router.get("/:email/system-design-study-plan", async (req, res) => {
     res.json(plan);
   } catch (e: any) {
     console.error("Error generating study plan:", e);
-    if (e instanceof OpenAiQuotaError) {
+    if (e instanceof AiQuotaError) {
       return res.status(503).json({
         error:
           "AI quota exceeded. Study plan generation is temporarily unavailable. Please update your OpenAI API billing or try again later.",

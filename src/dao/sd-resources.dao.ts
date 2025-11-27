@@ -54,20 +54,21 @@ export async function findRelevantResourcesByEmbedding(args: {
   const { topic, queryEmbedding, limit = 3 } = args;
 
   // pgvector: pass embedding as '[x,y,z]' literal
+  const provider = process.env.AI_PROVIDER ?? "openai";
+
+  const column =
+    provider === "openai" ? "embedding_openai" : "embedding_gemini";
   const vectorLiteral = `[${queryEmbedding.join(",")}]`;
-  // Why ORDER BY with it?
-  // Because we want the closest / most similar resources:
-  const res = await query(
-    `
-    SELECT id, topic, title, url, content
+
+  const sql = `
+    SELECT id, title, url, topic
     FROM sd_resources
     WHERE topic = $1
-      AND embedding IS NOT NULL
-    ORDER BY embedding <-> $2::vector //treat this value as type vector <-> : Distance operator
+      AND ${column} IS NOT NULL
+    ORDER BY ${column} <-> $2::vector
     LIMIT $3
-    `,
-    [topic, vectorLiteral, limit]
-  );
+  `;
 
-  return res.rows;
+  const { rows } = await query(sql, [topic, vectorLiteral, limit]);
+  return rows;
 }
