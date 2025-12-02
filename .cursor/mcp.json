@@ -1,0 +1,11 @@
+{
+    "mcpServers": {
+      "sd-copilot-mcp": {
+        "command": "npm",
+        "args": ["run", "mcp:sd"],
+        "env": {
+          "NODE_ENV": "development"
+        }
+      }
+    }
+  }
