@@ -6,6 +6,7 @@ import { z } from "zod";
 import * as usersDao from "../dao/users.dao";
 import * as systemDesignService from "../services/system-design.service";
 import * as systemDesignResourcesService from "../services/sd-resources.service";
+import * as systemDesignLangGraphAgent from "../agents/system-design-langgraph";
 import { SDResource } from "../interfaces/SDResource";
 
 const mcpServer = new McpServer({
@@ -169,6 +170,65 @@ mcpServer.registerTool(
         isError: true,
       };
     }
+  }
+);
+
+// Tool: generate next system design question for a user
+mcpServer.registerTool(
+  "sd_next_question",
+  {
+    description:
+      "Generate the next system design practice question for a user by email, using their history and weak topics.",
+    inputSchema: z.object({
+      email: z.string().describe("User email address"),
+    }),
+  },
+  async (input: { email: string }) => {
+    const email = String(input.email || "").trim();
+    if (!email) {
+      return {
+        content: [{ type: "text", text: "Missing required field: email" }],
+        isError: true,
+      };
+    }
+
+    // This function already knows how to:
+    // - ensure the user exists
+    // - load stats
+    // - pick topic/difficulty
+    // - create a new session + question
+    const state = await systemDesignLangGraphAgent.runQuestionGraphForEmail(email);
+
+    if (!state.question || !state.sessionId || !state.topic || !state.difficulty) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Failed to generate question for ${email}.`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const payload = {
+      email,
+      userId: state.userId,
+      sessionId: state.sessionId,
+      topic: state.topic,
+      difficulty: state.difficulty,
+      question: state.question,
+      overallLevel: state.stats?.overallLevel ?? null,
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(payload, null, 2),
+        },
+      ],
+    };
   }
 );
 
