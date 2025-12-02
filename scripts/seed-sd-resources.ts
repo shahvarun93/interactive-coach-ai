@@ -1,7 +1,6 @@
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
 import { Pool } from 'pg';
-import { createEmbeddingForText } from '../src/infra/openaiClient';
 import { SDResource } from '../src/interfaces/SDResource';
 
 dotenv.config();
@@ -81,9 +80,13 @@ const RESOURCES: SeedResource[] = [
 
 async function seed() {
   for (const resource of RESOURCES) {
-    let embedding: number[] | null = null;
+    let vectorLiteral: string | null = null;
+
     try {
-      embedding = await embed(`${resource.title}\n${resource.content}`);
+      const embedding = await embed(
+        `${resource.title}\n${resource.content}`
+      );
+      vectorLiteral = toVectorLiteral(embedding);
     } catch (e: any) {
       console.warn("Embedding failed, inserting null for now:", resource.title);
     }
@@ -91,7 +94,7 @@ async function seed() {
     await pool.query(
       `
       INSERT INTO sd_resources (title, url, topic, content, embedding)
-      VALUES ($1, $2, $3, $4, $5)
+      VALUES ($1, $2, $3, $4, $5::vector)
       ON CONFLICT (title) DO UPDATE
         SET url = EXCLUDED.url,
             topic = EXCLUDED.topic,
@@ -99,8 +102,9 @@ async function seed() {
             embedding = COALESCE(EXCLUDED.embedding, sd_resources.embedding),
             created_at = NOW()
       `,
-      [resource.title, resource.url, resource.topic, resource.content, embedding]
+      [resource.title, resource.url, resource.topic, resource.content, vectorLiteral]
     );
+
     console.log(`Seeded resource: ${resource.title}`);
   }
 }
@@ -135,7 +139,7 @@ async function seedEmbeddings() {
     console.log(`Embedding resource: ${row.id} (${row.title})...`);
 
     try {
-      const embedding = await createEmbeddingForText(baseText);
+      const embedding = await embed(baseText);
       const vectorLiteral = toVectorLiteral(embedding);
 
       await pool.query(
@@ -204,4 +208,3 @@ seedEmbeddings()
   .finally(async () => {
     await pool.end();
   });
-

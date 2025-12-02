@@ -63,7 +63,7 @@ export async function findRelevantResourcesByEmbedding(args: {
     FROM sd_resources
     WHERE topic = $1
       AND embedding IS NOT NULL
-    ORDER BY embedding <-> $2::vector //treat this value as type vector <-> : Distance operator
+    ORDER BY embedding <-> $2::vector 
     LIMIT $3
     `,
     [topic, vectorLiteral, limit]

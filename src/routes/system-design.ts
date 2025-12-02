@@ -4,6 +4,8 @@ import * as systemDesignService from "../services/system-design.service";
 import * as usersDao from "../dao/users.dao";
 import { findUserByEmail } from "../services/users.service";
 import { OpenAiQuotaError } from "../infra/openaiClient"; // adjust path if needed
+import * as systemDesignGraph from "../agents/system-design-langgraph";
+import * as systemDesignCoachGraph from "../agents/sd-coach-graph";
 
 const router = Router();
 
@@ -45,38 +47,35 @@ router.post("/by-email", async (req, res) => {
  */
 router.post("/generate-prompt", async (req, res) => {
   try {
-    const { email, difficulty, topic } = req.body as {
-      email?: string;
-      difficulty?: "easy" | "medium" | "hard";
-      topic: string | null;
-    };
+    const { email } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: "email is required" });
     }
 
-    const user = await findUserByEmail(email);
-    if (!user) {
-      return res.status(404).json({ error: "No user found with this email" });
+    // 🔹 Let LangGraph orchestrate everything:
+    const state = await systemDesignGraph.runQuestionGraphForEmail(email);
+
+    if (!state.sessionId || !state.question || !state.topic || !state.difficulty) {
+      // Very defensive; this *shouldn't* happen, but good to guard.
+      return res.status(500).json({
+        error: "Question graph did not return a valid session/question",
+        state,
+      });
     }
 
-    const { session, question } =
-      await systemDesignService.createAISystemDesignSessionForUser(
-        user.id,
-        difficulty ?? "medium",
-        topic ?? null
-      );
-
-    res.status(201).json({
-      sessionId: session.id,
-      userId: session.user_id,
-      prompt: question,
-      difficulty: difficulty ?? "medium",
-      createdAt: session.created_at,
+    // 🔹 This is the shape your frontend already expects:
+    return res.json({
+      sessionId: state.sessionId,
+      topic: state.topic,
+      difficulty: state.difficulty,
+      question: state.question,
+      // Bonus: you *can* also return stats if you want:
+      stats: state.stats ?? null,
     });
-  } catch (err) {
-    console.error("Error generating SD prompt:", err);
-    res.status(500).json({ error: "Failed to generate prompt" });
+  } catch (e) {
+    console.error("Error generating SD prompt via LangGraph:", e);
+    return res.status(500).json({ error: "Failed to generate prompt" });
   }
 });
 
@@ -198,56 +197,63 @@ router.get("/user/:userId/sessions", async (req, res) => {
   }
 });
 
+
 router.post("/coach", async (req, res) => {
   try {
-    const { email, sessionId } = req.body as {
-      email?: string;
-      sessionId?: string;
-    };
-
-    if (!email || !sessionId) {
-      return res.status(400).json({
-        error: "email and sessionId are required",
-      });
-    }
-
-    const result = await systemDesignService.createCoachFeedbackForSession(
-      email,
-      sessionId
-    );
-
-    return res.status(200).json(result);
+    const { email, sessionId } = req.body;
+    const response = await systemDesignCoachGraph.runCoachGraphForSession(email, sessionId);
+    res.json(response);
   } catch (err: any) {
-    console.error("Error generating coach feedback:", err);
-
-    if (err instanceof OpenAiQuotaError) {
-      return res.status(503).json({
-        error:
-          "AI quota exceeded. Coach feedback is temporarily unavailable. Please update your OpenAI API billing or try again later.",
-      });
+    console.error("Error in coach graph:", err);
+    if (err.message === "USER_NOT_FOUND") {
+      return res.status(404).json({ error: "USER_NOT_FOUND" });
     }
-
-    if (err?.message === "USER_NOT_FOUND") {
-      return res.status(404).json({ error: "User not found" });
+    if (err.message === "SESSION_NOT_FOUND") {
+      return res.status(404).json({ error: "SESSION_NOT_FOUND" });
     }
-    if (err?.message === "SESSION_NOT_FOUND") {
-      return res.status(404).json({ error: "Session not found" });
-    }
-    if (err?.message === "ANSWER_NOT_FOUND") {
-      return res
-        .status(400)
-        .json({ error: "No answer submitted for this session yet" });
-    }
-
-    return res.status(500).json({
-      error: "Failed to generate coaching feedback",
-      details:
-        process.env.NODE_ENV === "development"
-          ? err.message ?? String(err)
-          : undefined,
-    });
+    res.status(500).json({ error: "Failed to generate coach feedback" });
   }
 });
+
+// router.post("/coach", async (req, res) => {
+//   try {
+//     const { email, sessionId, answer } = req.body;
+
+//     if (!email || !sessionId) {
+//       return res.status(400).json({
+//         error: "email and sessionId are required",
+//       });
+//     }
+
+//     const state = await systemDesignGraph.runSystemDesignEvaluationGraph({
+//       email,
+//       sessionId
+//     });
+
+//     // Very defensive: if graph didn’t return feedback, treat as 500
+//     if (!state.coachFeedback) {
+//       return res.status(500).json({
+//         error: "Coach feedback not available from graph",
+//       });
+//     }
+
+//     return res.json({
+//       sessionId: state.sessionId,
+//       score: state.score,
+//       coachFeedback: state.coachFeedback,
+//     });
+//   } catch (e: any) {
+//     console.error("Error generating coach feedback via graph:", e);
+
+//     if (e instanceof OpenAiQuotaError) {
+//       return res.status(429).json({
+//         error: "OpenAI quota exceeded, please try again later.",
+//       });
+//     }
+
+//     return res.status(500).json({ error: "Failed to generate coach feedback" });
+//   }
+// });
 
 router.post("/next-question", async (req, res) => {
   try {
@@ -286,5 +292,4 @@ router.post("/next-question", async (req, res) => {
     });
   }
 });
-
 export default router;

@@ -314,6 +314,10 @@
       font-weight: 500;
     }
 
+    .text-muted {
+      color: var(--text-muted);
+    }
+
     /* History pagination buttons – make them visible on dark background */
     /* History pagination buttons – make them visible on dark background */
     #history-prev-btn,
@@ -437,8 +441,12 @@
             <div id="coach-next-practice" class="small"></div>
           </div>
           <div style="margin-top: 0.5rem">
-            <span class="label">Recommended resources:</span>
-            <ul id="coach-resources"></ul>
+            <span class="label">Coach Recommended resources:</span>
+            <ul id="coach-recommended-resources"></ul>
+          </div>
+          <div style="margin-top: 0.5rem">
+            <span class="label">Similar resources (RAG)</span>
+            <ul id="coach-rag-resources"></ul>
           </div>
         </div>
       </div>
@@ -912,46 +920,36 @@
           text("coach-next-practice").textContent = "";
         }
 
-        list("coach-resources").innerHTML = "";
+        // --- Coach-picked resources (from the JSON payload) ---
+        const coachResourcesRaw = coach.recommendedResources || [];
+        const coachResources = coachResourcesRaw.map((r) => ({
+          label: r.title,
+          href: r.url || "#",
+        }));
+        renderLinkList("coach-recommended-resources", coachResources);
 
-        const recommendedFromCoach = coach?.recommendedResources || [];
-        const retrievedFromServer = coachData?.resources || [];
+        // --- Similar resources from RAG (top-level resources array) ---
+        // De-dupe anything that already appears in coachResources
+        const ragResourcesRaw = coachData.resources || [];
 
-        const resourcesToShow = recommendedFromCoach.length
-          ? recommendedFromCoach
-          : retrievedFromServer;
+        // Build a set of "keys" for coach resources (prefer id, then url, then title)
+        const coachResourceKeys = new Set(
+          coachResourcesRaw.map((r) => r.id || r.url || r.title)
+        );
 
-        if (resourcesToShow.length > 0) {
-          resourcesToShow.forEach((resource) => {
-            const li = document.createElement("li");
+        // Only keep truly additional items in the RAG list
+        const uniqueRagResources = ragResourcesRaw.filter((r) => {
+          const key = r.id || r.url || r.title;
+          return !coachResourceKeys.has(key);
+        });
 
-            const title = resource.title || "Resource";
-            const url = resource.url;
-            const snippet = resource.reason || resource.contentSnippet || "";
+        const ragResources = uniqueRagResources.map((r) => ({
+          label: r.title,
+          href: r.url || "#",
+          extra: r.contentSnippet || "",
+        }));
 
-            if (url) {
-              const link = document.createElement("a");
-              link.href = url;
-              link.textContent = title;
-              link.target = "_blank";
-              link.rel = "noopener noreferrer";
-              li.appendChild(link);
-            } else {
-              li.textContent = title;
-            }
-
-            if (snippet) {
-              li.appendChild(document.createTextNode(` — ${snippet}`));
-            }
-
-            list("coach-resources").appendChild(li);
-          });
-        } else {
-          const li = document.createElement("li");
-          li.textContent = "No resources recommended at this time.";
-          li.style.color = "#888";
-          list("coach-resources").appendChild(li);
-        }
+        renderLinkList("coach-rag-resources", ragResources);
 
         setStatus("Answer evaluated and feedback generated.");
         // Update stats after an answered session
@@ -960,6 +958,47 @@
         console.error(e);
         setStatus("Error while submitting answer.");
         alert("Error: " + e.message);
+      }
+    }
+
+    function renderLinkList(ulId, items) {
+      const ul = document.getElementById(ulId);
+      if (!ul) return;
+
+      ul.innerHTML = "";
+
+      if (!items || items.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = "None yet.";
+        li.className = "text-muted";
+        ul.appendChild(li);
+        const container = ul.parentElement;
+        if (container) container.style.display = "none";
+        return;
+      }
+
+      for (const item of items) {
+        const li = document.createElement("li");
+
+        if (item.href) {
+          const a = document.createElement("a");
+          a.href = item.href;
+          a.textContent = item.label;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          li.appendChild(a);
+
+          if (item.extra) {
+            const span = document.createElement("span");
+            span.textContent = " – " + item.extra;
+            span.className = "text-muted";
+            li.appendChild(span);
+          }
+        } else {
+          li.textContent = item.label;
+        }
+
+        ul.appendChild(li);
       }
     }
 
