@@ -1,0 +1,1936 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>System Design Co-Pilot – Resume Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        :root {
+            --bg: #f5f7fb;
+            --bg-soft: #eef2ff;
+            --card-bg: #ffffff;
+            --border: #e5e7eb;
+            --border-subtle: #e2e8f0;
+            --accent: #2563eb;
+            --accent-soft: #dbeafe;
+            --accent-dark: #1d4ed8;
+            --danger: #dc2626;
+            --danger-soft: #fee2e2;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --text-soft: #9ca3af;
+            --radius-lg: 12px;
+            --radius-md: 8px;
+            --shadow-card: 0 12px 30px rgba(15, 23, 42, 0.06);
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                "Segoe UI", sans-serif;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: radial-gradient(circle at top left, #e5edff 0, #f5f7fb 45%, #f9fafb 100%);
+            color: var(--text-main);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a {
+            color: var(--accent-dark);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Top navigation */
+
+        header.app-header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            backdrop-filter: blur(18px);
+            background: rgba(248, 250, 252, 0.92);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+        }
+
+        .nav-inner {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .app-title-mark {
+            width: 26px;
+            height: 26px;
+            border-radius: 9px;
+            background: radial-gradient(circle at 20% 20%, #eff6ff 0, #1d4ed8 45%, #0f172a 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #e5edff;
+            font-weight: 700;
+            font-size: 0.9rem;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.4);
+        }
+
+        .app-title-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .app-title-main {
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .app-title-sub {
+            font-size: 0.78rem;
+            color: var(--text-soft);
+        }
+
+        .nav-tag {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 2px 7px;
+            border-radius: 999px;
+            border: 1px solid rgba(129, 140, 248, 0.85);
+            color: #3730a3;
+            background: rgba(224, 231, 255, 0.7);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.86rem;
+        }
+
+        .nav-link {
+            padding: 6px 11px;
+            border-radius: 999px;
+            color: var(--text-muted);
+            font-weight: 500;
+            border: 1px solid transparent;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-link:hover {
+            background: rgba(241, 245, 249, 0.9);
+            color: var(--text-main);
+            text-decoration: none;
+        }
+
+        .nav-link.active {
+            background: #eef2ff;
+            color: #3730a3;
+            border-color: rgba(129, 140, 248, 0.9);
+            box-shadow: 0 6px 16px rgba(129, 140, 248, 0.35);
+        }
+
+        .nav-pill-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
+        }
+
+        /* Layout */
+
+        main.page {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 18px 16px 28px;
+        }
+
+        .page-heading {
+            margin-bottom: 16px;
+        }
+
+        .page-kicker {
+            font-size: 0.73rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-soft);
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .page-title-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .page-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+        }
+
+        .page-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .page-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.8fr);
+            gap: 18px;
+            align-items: flex-start;
+        }
+
+        @media (max-width: 900px) {
+            .page-layout {
+                grid-template-columns: minmax(0, 1fr);
+            }
+        }
+
+        .column-left,
+        .column-right {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .column-right-scroll {
+            max-height: calc(100vh - 130px);
+            overflow: auto;
+            padding-right: 4px;
+        }
+
+        @media (max-width: 900px) {
+            .column-right-scroll {
+                max-height: none;
+                overflow: visible;
+            }
+        }
+
+        /* Cards and UI elements */
+
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card);
+            border: 1px solid rgba(226, 232, 240, 0.96);
+            padding: 14px 16px 16px;
+            position: relative;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+
+        .card-header-main {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .pill-label {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: #e5e7eb;
+            color: #4b5563;
+            font-weight: 600;
+        }
+
+        .pill-label-soft {
+            background: #eef2ff;
+            color: #3730a3;
+        }
+
+        .card-body {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+
+        .field-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .field-group {
+            flex: 1;
+            min-width: 140px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        label.field-label {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        input[type="text"],
+        textarea {
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            padding: 8px 10px;
+            font-size: 0.9rem;
+            font-family: var(--font-sans);
+            outline: none;
+            background: #f9fafb;
+            transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus {
+            border-color: var(--accent);
+            background: #ffffff;
+            box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25);
+        }
+
+        textarea {
+            min-height: 220px;
+            resize: vertical;
+            line-height: 1.5;
+        }
+
+        .hint {
+            font-size: 0.8rem;
+            color: var(--text-soft);
+        }
+
+        .button-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .btn {
+            border-radius: 999px;
+            padding: 7px 14px;
+            border: none;
+            font-size: 0.88rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s ease, transform 0.08s ease, box-shadow 0.15s ease,
+                border-color 0.15s ease, opacity 0.1s ease;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #ffffff;
+            box-shadow: 0 10px 22px rgba(37, 99, 235, 0.55);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-dark);
+            box-shadow: 0 14px 28px rgba(37, 99, 235, 0.6);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #edf2ff;
+            color: #3730a3;
+            border: 1px solid rgba(129, 140, 248, 0.8);
+            box-shadow: none;
+            border-radius: 999px;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e7ff;
+            transform: translateY(-0.5px);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            box-shadow: none;
+            padding-inline: 10px;
+            border-radius: 999px;
+        }
+
+        .btn-ghost:hover {
+            background: rgba(148, 163, 184, 0.08);
+            color: var(--text-main);
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+
+        .btn[disabled] {
+            opacity: 0.7;
+            cursor: default;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .btn-label {
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .btn-spinner {
+            width: 14px;
+            height: 14px;
+            border-radius: 999px;
+            border: 2px solid rgba(239, 246, 255, 0.75);
+            border-top-color: rgba(15, 23, 42, 0.8);
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+
+        .btn.is-loading .btn-spinner {
+            display: inline-block;
+        }
+
+        .btn.is-loading .btn-label {
+            opacity: 0.9;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .alert {
+            border-radius: 8px;
+            padding: 7px 9px;
+            font-size: 0.82rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .alert-error {
+            background: var(--danger-soft);
+            border: 1px solid rgba(248, 113, 113, 0.9);
+            color: #7f1d1d;
+        }
+
+        .alert-icon {
+            font-size: 0.95rem;
+            line-height: 1.2;
+        }
+
+        .alert-text {
+            flex: 1;
+        }
+
+        /* Analysis column */
+
+        .placeholder-card {
+            border-radius: var(--radius-lg);
+            border: 1px dashed var(--border-subtle);
+            background: rgba(248, 250, 252, 0.85);
+            padding: 16px 14px;
+            text-align: left;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .placeholder-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .placeholder-body {
+            font-size: 0.85rem;
+        }
+
+        .placeholder-hint {
+            font-size: 0.8rem;
+            color: var(--text-soft);
+        }
+
+        .divider {
+            height: 1px;
+            background: #e5e7eb;
+            margin: 4px 0;
+            opacity: 0.9;
+        }
+
+        .field-label-inline {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-soft);
+            margin-bottom: 2px;
+        }
+
+        .profile-header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 10px;
+            align-items: baseline;
+        }
+
+        .profile-name {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .profile-headline {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .profile-location {
+            font-size: 0.86rem;
+            color: var(--text-muted);
+        }
+
+        .contact-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            font-size: 0.84rem;
+            margin-top: 4px;
+        }
+
+        .contact-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: var(--text-muted);
+        }
+
+        .contact-label {
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .summary-text {
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: var(--text-main);
+            background: #f9fafb;
+            padding: 8px 9px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            white-space: pre-wrap;
+        }
+
+        .muted {
+            color: var(--text-soft);
+        }
+
+        .pill-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 2px;
+        }
+
+        .pill-skill {
+            border-radius: 999px;
+            padding: 3px 8px;
+            font-size: 0.78rem;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid rgba(191, 219, 254, 0.9);
+            white-space: nowrap;
+        }
+
+        .pill-skill-alt {
+            background: #ecfdf5;
+            color: #047857;
+            border-color: #a7f3d0;
+        }
+
+        .section-block {
+            margin-top: 4px;
+            padding-top: 4px;
+        }
+
+        .section-heading {
+            font-size: 0.82rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-soft);
+            margin-bottom: 3px;
+        }
+
+        .experience-item,
+        .education-item,
+        .project-item {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+        }
+
+        .experience-item:last-child,
+        .education-item:last-child,
+        .project-item:last-child {
+            border-bottom: none;
+        }
+
+        .item-title-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 8px;
+            align-items: baseline;
+            margin-bottom: 1px;
+        }
+
+        .item-title-main {
+            font-size: 0.92rem;
+            font-weight: 600;
+        }
+
+        .item-title-sub {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+        }
+
+        .item-meta {
+            font-size: 0.8rem;
+            color: var(--text-soft);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 8px;
+            margin-bottom: 3px;
+        }
+
+        .bullet-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            color: var(--text-main);
+        }
+
+        .bullet-list li {
+            margin-bottom: 2px;
+        }
+
+        .bullet-list.small li {
+            margin-bottom: 1px;
+        }
+
+        .code-like {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                "Liberation Mono", "Courier New", monospace;
+        }
+
+        .issues-section-subheading {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-top: 4px;
+            margin-bottom: 2px;
+        }
+
+        .issues-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+        }
+
+        .highlight-card {
+            background: linear-gradient(135deg, #eff6ff, #fefce8);
+            border-color: rgba(129, 140, 248, 0.8);
+            box-shadow: 0 14px 30px rgba(129, 140, 248, 0.28);
+        }
+
+        .highlight-card .card-title {
+            color: #1f2937;
+        }
+
+        .highlight-card .card-subtitle {
+            color: #4b5563;
+        }
+
+        .copy-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 3px;
+        }
+
+        .copy-status {
+            font-size: 0.78rem;
+            color: var(--text-soft);
+        }
+
+        .small-note {
+            font-size: 0.78rem;
+            color: var(--text-soft);
+        }
+
+        ::-webkit-scrollbar {
+            width: 7px;
+            height: 7px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.7);
+            border-radius: 999px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        @media (max-width: 600px) {
+            header.app-header {
+                position: static;
+            }
+
+            main.page {
+                padding-top: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="app-header">
+        <div class="nav-inner">
+            <div class="nav-left">
+                <div class="app-title-mark">SD</div>
+                <div class="app-title-text">
+                    <div class="app-title-main">
+                        System Design Co-Pilot
+                        <span class="nav-tag">Resume assistant</span>
+                    </div>
+                    <div class="app-title-sub">
+                        Tune your resume for system design & backend roles.
+                    </div>
+                </div>
+            </div>
+            <nav class="nav-links">
+                <a href="index.html" class="nav-link">
+                    <span>System Design Coach</span>
+                </a>
+                <a href="resume.html" class="nav-link active">
+                    <span class="nav-pill-dot"></span>
+                    <span>Resume Assistant</span>
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="page">
+        <section class="page-heading">
+            <div class="page-kicker">Resume analysis</div>
+            <div class="page-title-row">
+                <h1 class="page-title">Make your resume speak system design</h1>
+            </div>
+            <p class="page-subtitle">
+                Paste your resume, specify your target role or company, and get a structured breakdown of strengths,
+                gaps, and improved bullets.
+            </p>
+        </section>
+        <section class="page-layout">
+            <!-- Left column: Resume Input -->
+            <section class="column-left">
+                <article class="card" aria-labelledby="resume-card-title">
+                    <header class="card-header">
+                        <div class="card-header-main">
+                            <h2 id="resume-card-title" class="card-title">
+                                Paste Your Resume
+                                <span class="pill-label pill-label-soft">Input</span>
+                            </h2>
+                            <p class="card-subtitle">
+                                Your resume stays on this page and is sent only to the Co-Pilot API for analysis.
+                            </p>
+                        </div>
+                    </header>
+                    <div class="card-body">
+                        <div class="field-row">
+                            <div class="field-group">
+                                <label for="targetRoleInput" class="field-label">Target role</label>
+                                <input id="targetRoleInput" type="text"
+                                    placeholder="Senior Backend Engineer, Staff Engineer, etc." autocomplete="off" />
+                            </div>
+                            <div class="field-group">
+                                <label for="targetCompanyInput" class="field-label">Target company (optional)</label>
+                                <input id="targetCompanyInput" type="text"
+                                    placeholder="Company you’re aiming for (optional)" autocomplete="off" />
+                            </div>
+                        </div>
+
+                        <div class="field-group" style="margin-top: 6px;">
+                            <label for="resumeTextarea" class="field-label">Resume (plain text)</label>
+                            <textarea id="resumeTextarea"
+                                placeholder="Paste your resume as plain text. You can export from PDF/Word and paste here."></textarea>
+                            <p class="hint">
+                                Tip: Include your full experience, skills, and projects – the assistant will highlight
+                                what’s missing for system design–heavy roles.
+                            </p>
+                        </div>
+
+                        <div id="errorBox" class="alert alert-error" role="alert" hidden>
+                            <div class="alert-icon">⚠</div>
+                            <div class="alert-text" id="errorText">
+                                Something went wrong.
+                            </div>
+                        </div>
+
+                        <div class="button-row">
+                            <button id="analyzeBtn" class="btn btn-primary">
+                                <span class="btn-spinner" aria-hidden="true"></span>
+                                <span class="btn-label">Analyze Resume</span>
+                            </button>
+                            <button id="clearBtn" class="btn btn-secondary" type="button">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                </article>
+            </section>
+
+            <!-- Right column: Analysis & Suggestions -->
+            <section class="column-right">
+                <div class="column-right-scroll">
+                    <div id="analysisPlaceholder" class="placeholder-card">
+                        <div class="placeholder-title">No analysis yet</div>
+                        <div class="placeholder-body">
+                            Paste your resume on the left, optionally set a target role, then click <strong>Analyze
+                                Resume</strong>.
+                        </div>
+                        <div class="placeholder-hint">
+                            You’ll see a structured breakdown of your profile, skills, experience, and suggested
+                            improvements here.
+                        </div>
+                    </div>
+
+                    <div id="analysisContent" hidden>
+                        <!-- Card 1 – Profile Snapshot -->
+                        <article class="card" aria-labelledby="profile-card-title">
+                            <header class="card-header">
+                                <div class="card-header-main">
+                                    <h2 id="profile-card-title" class="card-title">
+                                        Profile Snapshot
+                                        <span class="pill-label">Parsed</span>
+                                    </h2>
+                                    <p class="card-subtitle">
+                                        High-level view of how your resume presents you to a reviewer.
+                                    </p>
+                                </div>
+                            </header>
+                            <div class="card-body">
+                                <div class="profile-header">
+                                    <div id="profileName" class="profile-name muted">Name not detected</div>
+                                    <div id="profileHeadline" class="profile-headline">Headline not detected</div>
+                                </div>
+                                <div id="profileLocation" class="profile-location muted">
+                                    Location not detected
+                                </div>
+
+                                <div class="section-block">
+                                    <div class="field-label-inline">Contact</div>
+                                    <div id="profileContact" class="contact-row">
+                                        <span class="small-note">No contact details detected.</span>
+                                    </div>
+                                </div>
+
+                                <div class="section-block">
+                                    <div class="field-label-inline">Summary</div>
+                                    <div id="profileSummary" class="summary-text muted">
+                                        Summary not detected. Consider adding a concise 2–3 sentence overview of your
+                                        impact and focus areas.
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- Card 2 – Skills -->
+                        <article class="card" aria-labelledby="skills-card-title">
+                            <header class="card-header">
+                                <div class="card-header-main">
+                                    <h2 id="skills-card-title" class="card-title">
+                                        Skills
+                                        <span class="pill-label">Parsed</span>
+                                    </h2>
+                                    <p class="card-subtitle">
+                                        Grouped by category to show how your stack covers backend & system design needs.
+                                    </p>
+                                </div>
+                            </header>
+                            <div class="card-body">
+                                <div id="skillsEmptyState" class="small-note">
+                                    No skills detected. Make sure your skills section is clearly labeled and formatted.
+                                </div>
+
+                                <div id="skillsLanguages" class="section-block" hidden>
+                                    <div class="section-heading">Languages</div>
+                                    <div class="pill-list" id="skillsLanguagesList"></div>
+                                </div>
+
+                                <div id="skillsFrameworks" class="section-block" hidden>
+                                    <div class="section-heading">Frameworks</div>
+                                    <div class="pill-list" id="skillsFrameworksList"></div>
+                                </div>
+
+                                <div id="skillsDatabases" class="section-block" hidden>
+                                    <div class="section-heading">Databases</div>
+                                    <div class="pill-list" id="skillsDatabasesList"></div>
+                                </div>
+
+                                <div id="skillsCloud" class="section-block" hidden>
+                                    <div class="section-heading">Cloud</div>
+                                    <div class="pill-list" id="skillsCloudList"></div>
+                                </div>
+
+                                <div id="skillsTools" class="section-block" hidden>
+                                    <div class="section-heading">Tools</div>
+                                    <div class="pill-list" id="skillsToolsList"></div>
+                                </div>
+
+                                <div id="skillsOther" class="section-block" hidden>
+                                    <div class="section-heading">Other</div>
+                                    <div class="pill-list" id="skillsOtherList"></div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- Card 3 – Experience -->
+                        <article class="card" aria-labelledby="experience-card-title">
+                            <header class="card-header">
+                                <div class="card-header-main">
+                                    <h2 id="experience-card-title" class="card-title">
+                                        Experience
+                                        <span class="pill-label">Timeline</span>
+                                    </h2>
+                                    <p class="card-subtitle">
+                                        How your experience reads for system design and backend responsibilities.
+                                    </p>
+                                </div>
+                            </header>
+                            <div class="card-body">
+                                <div id="experienceList"></div>
+                                <div id="experienceEmptyState" class="small-note">
+                                    No experience entries detected.
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- Card 4 – Education -->
+                        <article class="card" aria-labelledby="education-card-title">
+                            <header class="card-header">
+                                <div class="card-header-main">
+                                    <h2 id="education-card-title" class="card-title">
+                                        Education
+                                        <span class="pill-label">Academic</span>
+                                    </h2>
+                                    <p class="card-subtitle">
+                                        Background supporting your technical depth and fundamentals.
+                                    </p>
+                                </div>
+                            </header>
+                            <div class="card-body">
+                                <div id="educationList"></div>
+                                <div id="educationEmptyState" class="small-note">
+                                    No education entries detected.
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- Card 5 – Projects -->
+                        <article class="card" aria-labelledby="projects-card-title">
+                            <header class="card-header">
+                                <div class="card-header-main">
+                                    <h2 id="projects-card-title" class="card-title">
+                                        Projects
+                                        <span class="pill-label">Hands-on work</span>
+                                    </h2>
+                                    <p class="card-subtitle">
+                                        Personal or side projects that showcase system design, scalability, or
+                                        infrastructure.
+                                    </p>
+                                </div>
+                            </header>
+                            <div class="card-body">
+                                <div id="projectsList"></div>
+                                <div id="projectsEmptyState" class="small-note">
+                                    No projects detected.
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- Card 6 – Issues & Gaps -->
+                        <article class="card" aria-labelledby="issues-card-title">
+                            <header class="card-header">
+                                <div class="card-header-main">
+                                    <h2 id="issues-card-title" class="card-title">
+                                        Issues &amp; Gaps
+                                        <span class="pill-label">Flags</span>
+                                    </h2>
+                                    <p class="card-subtitle">
+                                        Potential weak spots or inconsistencies that may confuse a reviewer.
+                                    </p>
+                                </div>
+                            </header>
+                            <div class="card-body">
+                                <div>
+                                    <div class="section-heading">Overall issues</div>
+                                    <ul id="issuesList" class="issues-list">
+                                        <li class="muted">No issues detected.</li>
+                                    </ul>
+                                </div>
+                                <div id="sectionIssuesContainer"></div>
+                            </div>
+                        </article>
+
+                        <!-- Card 7 – High-Impact Suggestions -->
+                        <article class="card highlight-card" aria-labelledby="suggestions-card-title">
+                            <header class="card-header">
+                                <div class="card-header-main">
+                                    <h2 id="suggestions-card-title" class="card-title">
+                                        High-Impact Suggestions
+                                        <span class="pill-label pill-label-soft">Recommendations</span>
+                                    </h2>
+                                    <p class="card-subtitle">
+                                        Concrete changes that will most improve how your resume lands for your target
+                                        role.
+                                    </p>
+                                </div>
+                            </header>
+                            <div class="card-body">
+                                <ol id="suggestionsList" class="issues-list">
+                                    <li class="muted">No suggestions returned.</li>
+                                </ol>
+                            </div>
+                        </article>
+
+                        <!-- Card 8 – Improved Sample Bullets -->
+                        <article class="card" aria-labelledby="bullets-card-title">
+                            <header class="card-header">
+                                <div class="card-header-main">
+                                    <h2 id="bullets-card-title" class="card-title">
+                                        Improved Sample Bullets
+                                        <span class="pill-label">Examples</span>
+                                    </h2>
+                                    <p class="card-subtitle">
+                                        Use these as inspiration to rewrite your own experience bullets in a stronger,
+                                        impact-driven style.
+                                    </p>
+                                </div>
+                            </header>
+                            <div class="card-body">
+                                <div class="copy-row">
+                                    <span class="small-note">
+                                        Copy and adapt, don’t paste verbatim – keep them true to your experience.
+                                    </span>
+                                    <button id="copyBulletsBtn" class="btn btn-ghost btn-small" type="button">
+                                        Copy all
+                                    </button>
+                                </div>
+                                <ul id="bulletsList" class="bullet-list small">
+                                    <li class="muted">No sample bullets provided.</li>
+                                </ul>
+                                <div id="copyStatus" class="copy-status"></div>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <script>
+        // Configuration: adjust BASE_URL if your API is hosted on a different origin
+        const BASE_URL = "http://localhost:3000"; // e.g. "https://api.yourdomain.com" or leave empty for same-origin
+
+        function apiUrl(path) {
+            return BASE_URL + path;
+        }
+
+        // DOM elements
+        const targetRoleInput = document.getElementById("targetRoleInput");
+        const targetCompanyInput = document.getElementById("targetCompanyInput");
+        const resumeTextarea = document.getElementById("resumeTextarea");
+        const analyzeBtn = document.getElementById("analyzeBtn");
+        const clearBtn = document.getElementById("clearBtn");
+        const errorBox = document.getElementById("errorBox");
+        const errorText = document.getElementById("errorText");
+
+        const analysisPlaceholder = document.getElementById("analysisPlaceholder");
+        const analysisContent = document.getElementById("analysisContent");
+
+        // Profile
+        const profileNameEl = document.getElementById("profileName");
+        const profileHeadlineEl = document.getElementById("profileHeadline");
+        const profileLocationEl = document.getElementById("profileLocation");
+        const profileContactEl = document.getElementById("profileContact");
+        const profileSummaryEl = document.getElementById("profileSummary");
+
+        // Skills
+        const skillsEmptyState = document.getElementById("skillsEmptyState");
+        const skillsLanguagesSection = document.getElementById("skillsLanguages");
+        const skillsFrameworksSection = document.getElementById("skillsFrameworks");
+        const skillsDatabasesSection = document.getElementById("skillsDatabases");
+        const skillsCloudSection = document.getElementById("skillsCloud");
+        const skillsToolsSection = document.getElementById("skillsTools");
+        const skillsOtherSection = document.getElementById("skillsOther");
+
+        const skillsLanguagesList = document.getElementById("skillsLanguagesList");
+        const skillsFrameworksList = document.getElementById("skillsFrameworksList");
+        const skillsDatabasesList = document.getElementById("skillsDatabasesList");
+        const skillsCloudList = document.getElementById("skillsCloudList");
+        const skillsToolsList = document.getElementById("skillsToolsList");
+        const skillsOtherList = document.getElementById("skillsOtherList");
+
+        // Experience
+        const experienceListEl = document.getElementById("experienceList");
+        const experienceEmptyState = document.getElementById("experienceEmptyState");
+
+        // Education
+        const educationListEl = document.getElementById("educationList");
+        const educationEmptyState = document.getElementById("educationEmptyState");
+
+        // Projects
+        const projectsListEl = document.getElementById("projectsList");
+        const projectsEmptyState = document.getElementById("projectsEmptyState");
+
+        // Issues & suggestions
+        const issuesListEl = document.getElementById("issuesList");
+        const sectionIssuesContainer = document.getElementById("sectionIssuesContainer");
+        const suggestionsListEl = document.getElementById("suggestionsList");
+
+        // Bullets
+        const bulletsListEl = document.getElementById("bulletsList");
+        const copyBulletsBtn = document.getElementById("copyBulletsBtn");
+        copyBulletsBtn.disabled = true;
+        const copyStatusEl = document.getElementById("copyStatus");
+
+        let lastImprovedBullets = [];
+
+        // Utilities
+        function showError(message) {
+            errorText.textContent = message || "Something went wrong.";
+            errorBox.hidden = false;
+            errorBox.style.display = "flex";
+        }
+
+        function clearError() {
+            if (!errorBox) return;
+            errorBox.hidden = true;
+            errorBox.style.display = "none"; // ensure it is visually hidden even if inline style was set
+            if (errorText) {
+                errorText.textContent = "";
+            }
+        }
+
+        function setButtonLoading(button, isLoading) {
+            if (!button) return;
+            if (isLoading) {
+                button.classList.add("is-loading");
+                button.disabled = true;
+            } else {
+                button.classList.remove("is-loading");
+                button.disabled = false;
+            }
+        }
+
+        function setTextOrPlaceholder(el, value, placeholder) {
+            if (!el) return;
+            const text = value && String(value).trim();
+            if (text) {
+                el.textContent = text;
+                el.classList.remove("muted");
+            } else {
+                el.textContent = placeholder;
+                el.classList.add("muted");
+            }
+        }
+
+        function renderPills(container, items, emptyText) {
+            container.innerHTML = "";
+            if (!Array.isArray(items) || items.length === 0) {
+                const span = document.createElement("span");
+                span.textContent = emptyText || "None detected.";
+                span.className = "small-note";
+                container.appendChild(span);
+                return;
+            }
+
+            items.forEach((item) => {
+                if (!item) return;
+                const pill = document.createElement("span");
+                pill.className = "pill-skill";
+                pill.textContent = String(item);
+                container.appendChild(pill);
+            });
+        }
+
+        function renderTagSection(sectionEl, listEl, items) {
+            if (!sectionEl || !listEl) return;
+            if (Array.isArray(items) && items.length > 0) {
+                sectionEl.hidden = false;
+                renderPills(listEl, items);
+            } else {
+                sectionEl.hidden = true;
+                listEl.innerHTML = "";
+            }
+        }
+
+        function renderBulletsList(container, bullets) {
+            container.innerHTML = "";
+            if (!Array.isArray(bullets) || bullets.length === 0) {
+                const li = document.createElement("li");
+                li.textContent = "No items provided.";
+                li.className = "muted";
+                container.appendChild(li);
+                return;
+            }
+            bullets.forEach((b) => {
+                if (!b) return;
+                const li = document.createElement("li");
+                li.textContent = String(b);
+                container.appendChild(li);
+            });
+        }
+
+        function renderIssuesList(container, issues, emptyText) {
+            container.innerHTML = "";
+            if (!Array.isArray(issues) || issues.length === 0) {
+                const li = document.createElement("li");
+                li.textContent = emptyText || "No issues detected.";
+                li.className = "muted";
+                container.appendChild(li);
+                return;
+            }
+            issues.forEach((issue) => {
+                if (!issue) return;
+                const li = document.createElement("li");
+                li.textContent = String(issue);
+                container.appendChild(li);
+            });
+        }
+
+        function renderSectionIssues(sectionName, issues) {
+            if (!Array.isArray(issues) || issues.length === 0) return null;
+            const wrapper = document.createElement("div");
+            wrapper.className = "section-block";
+
+            const heading = document.createElement("div");
+            heading.className = "issues-section-subheading";
+            heading.textContent = sectionName;
+            wrapper.appendChild(heading);
+
+            const list = document.createElement("ul");
+            list.className = "issues-list";
+            issues.forEach((issue) => {
+                if (!issue) return;
+                const li = document.createElement("li");
+                li.textContent = String(issue);
+                list.appendChild(li);
+            });
+            wrapper.appendChild(list);
+            return wrapper;
+        }
+
+        function createLinkPill(label, value, href) {
+            const container = document.createElement("span");
+            container.className = "contact-item";
+
+            const labelSpan = document.createElement("span");
+            labelSpan.className = "contact-label";
+            labelSpan.textContent = label;
+            container.appendChild(labelSpan);
+
+            if (href) {
+                const link = document.createElement("a");
+                link.href = href;
+                link.textContent = value;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                container.appendChild(link);
+            } else {
+                const span = document.createElement("span");
+                span.textContent = value;
+                container.appendChild(span);
+            }
+
+            return container;
+        }
+
+        function renderProfile(parsed) {
+            const name = parsed && parsed.name;
+            const headline = parsed && parsed.headline;
+            const location = parsed && parsed.location;
+
+            setTextOrPlaceholder(profileNameEl, name, "Name not detected");
+            setTextOrPlaceholder(profileHeadlineEl, headline, "Headline not detected");
+            setTextOrPlaceholder(profileLocationEl, location, "Location not detected");
+
+            // Contact info
+            profileContactEl.innerHTML = "";
+            const contact = (parsed && parsed.contact) || {};
+            const contactEntries = [];
+
+            if (contact.email) {
+                contactEntries.push(
+                    createLinkPill("Email", contact.email, "mailto:" + contact.email)
+                );
+            }
+            if (contact.phone) {
+                contactEntries.push(createLinkPill("Phone", contact.phone, null));
+            }
+            if (contact.linkedin) {
+                const url =
+                    contact.linkedin.startsWith("http") ?
+                        contact.linkedin :
+                        "https://www.linkedin.com/in/" + contact.linkedin.replace(/^@/, "");
+                contactEntries.push(createLinkPill("LinkedIn", contact.linkedin, url));
+            }
+            if (contact.github) {
+                const url =
+                    contact.github.startsWith("http") ?
+                        contact.github :
+                        "https://github.com/" + contact.github.replace(/^@/, "");
+                contactEntries.push(createLinkPill("GitHub", contact.github, url));
+            }
+            if (contact.other) {
+                contactEntries.push(createLinkPill("Other", contact.other, null));
+            }
+
+            if (contactEntries.length === 0) {
+                const span = document.createElement("span");
+                span.textContent = "No contact details detected.";
+                span.className = "small-note";
+                profileContactEl.appendChild(span);
+            } else {
+                contactEntries.forEach((node) => profileContactEl.appendChild(node));
+            }
+
+            // Summary
+            const summary = parsed && parsed.summary;
+            if (summary && String(summary).trim()) {
+                profileSummaryEl.textContent = summary;
+                profileSummaryEl.classList.remove("muted");
+            } else {
+                profileSummaryEl.textContent =
+                    "Summary not detected. Consider adding a concise overview of your impact, scale of systems, and main strengths.";
+                profileSummaryEl.classList.add("muted");
+            }
+        }
+
+        function renderSkills(skills) {
+            const hasAnySkills =
+                skills &&
+                Object.keys(skills).some((key) => Array.isArray(skills[key]) && skills[key].length);
+
+            if (!hasAnySkills) {
+                skillsEmptyState.hidden = false;
+                [
+                    skillsLanguagesSection,
+                    skillsFrameworksSection,
+                    skillsDatabasesSection,
+                    skillsCloudSection,
+                    skillsToolsSection,
+                    skillsOtherSection
+                ].forEach((section) => {
+                    section.hidden = true;
+                });
+                return;
+            }
+
+            skillsEmptyState.hidden = true;
+
+            renderTagSection(
+                skillsLanguagesSection,
+                skillsLanguagesList,
+                skills && skills.languages
+            );
+            renderTagSection(
+                skillsFrameworksSection,
+                skillsFrameworksList,
+                skills && skills.frameworks
+            );
+            renderTagSection(
+                skillsDatabasesSection,
+                skillsDatabasesList,
+                skills && skills.databases
+            );
+            renderTagSection(
+                skillsCloudSection,
+                skillsCloudList,
+                skills && skills.cloud
+            );
+            renderTagSection(
+                skillsToolsSection,
+                skillsToolsList,
+                skills && skills.tools
+            );
+            renderTagSection(
+                skillsOtherSection,
+                skillsOtherList,
+                skills && skills.other
+            );
+        }
+
+        function formatDateRange(startDate, endDate) {
+            const start = startDate ? String(startDate) : null;
+            const end = endDate ? String(endDate) : null;
+
+            if (!start && !end) return "Dates not specified";
+            if (start && !end) return `${start} – Present`;
+            if (!start && end) return end;
+            return `${start} – ${end}`;
+        }
+
+        function renderExperience(experiences) {
+            experienceListEl.innerHTML = "";
+            const list = Array.isArray(experiences) ? experiences : [];
+
+            if (list.length === 0) {
+                experienceEmptyState.hidden = false;
+                return;
+            }
+
+            experienceEmptyState.hidden = true;
+            list.forEach((exp) => {
+                if (!exp || !exp.company && !exp.title) return;
+                const wrapper = document.createElement("div");
+                wrapper.className = "experience-item";
+
+                const titleRow = document.createElement("div");
+                titleRow.className = "item-title-row";
+
+                const titleMain = document.createElement("div");
+                titleMain.className = "item-title-main";
+                const titleText = [exp.title, exp.company]
+                    .filter(Boolean)
+                    .join(" @ ");
+                titleMain.textContent = titleText || "Experience entry";
+                titleRow.appendChild(titleMain);
+
+                wrapper.appendChild(titleRow);
+
+                const metaRow = document.createElement("div");
+                metaRow.className = "item-meta";
+
+                const datesText = exp.dateRange
+                    ? String(exp.dateRange)
+                    : formatDateRange(exp.startDate, exp.endDate);
+                const datesSpan = document.createElement("span");
+                datesSpan.textContent = datesText;
+                metaRow.appendChild(datesSpan);
+
+                if (exp.location) {
+                    const locSpan = document.createElement("span");
+                    locSpan.textContent = exp.location;
+                    metaRow.appendChild(locSpan);
+                }
+
+                wrapper.appendChild(metaRow);
+
+                const bullets = Array.isArray(exp.bullets) ? exp.bullets : [];
+                if (bullets.length > 0) {
+                    const ul = document.createElement("ul");
+                    ul.className = "bullet-list";
+                    bullets.forEach((b) => {
+                        if (!b) return;
+                        const li = document.createElement("li");
+                        li.textContent = String(b);
+                        ul.appendChild(li);
+                    });
+                    wrapper.appendChild(ul);
+                }
+
+                experienceListEl.appendChild(wrapper);
+            });
+        }
+
+        function renderEducation(education) {
+            educationListEl.innerHTML = "";
+            const list = Array.isArray(education) ? education : [];
+
+            if (list.length === 0) {
+                educationEmptyState.hidden = false;
+                return;
+            }
+
+            educationEmptyState.hidden = true;
+
+            list.forEach((edu) => {
+                if (!edu) return;
+                const school = edu.school || edu.institution || edu.university;
+                if (!school) return;
+                const wrapper = document.createElement("div");
+                wrapper.className = "education-item";
+
+                const titleRow = document.createElement("div");
+                titleRow.className = "item-title-row";
+
+                const schoolEl = document.createElement("div");
+                schoolEl.className = "item-title-main";
+                schoolEl.textContent = school;
+                titleRow.appendChild(schoolEl);
+
+                const degreeParts = [];
+                if (edu.degree) degreeParts.push(edu.degree);
+                if (edu.field) degreeParts.push(edu.field);
+                const degreeText = degreeParts.join(" · ");
+
+                if (degreeText) {
+                    const degreeEl = document.createElement("div");
+                    degreeEl.className = "item-title-sub";
+                    degreeEl.textContent = degreeText;
+                    titleRow.appendChild(degreeEl);
+                }
+
+                wrapper.appendChild(titleRow);
+
+                const metaRow = document.createElement("div");
+                metaRow.className = "item-meta";
+
+                const metaParts = [];
+
+                if (edu.dateRange) {
+                    metaParts.push(String(edu.dateRange));
+                } else {
+                    const rangeText = formatDateRange(edu.startDate, edu.endDate);
+                    if (rangeText) {
+                        metaParts.push(rangeText);
+                    }
+                }
+
+                if (edu.location) {
+                    metaParts.push(String(edu.location));
+                }
+
+                if (typeof edu.gpa === "number") {
+                    metaParts.push(`GPA: ${edu.gpa}`);
+                }
+
+                metaRow.textContent = metaParts.join(" · ") || "Dates not specified";
+                wrapper.appendChild(metaRow);
+
+                const details = Array.isArray(edu.details) ? edu.details : [];
+                if (details.length > 0) {
+                    const ul = document.createElement("ul");
+                    ul.className = "bullet-list small";
+                    details.forEach((d) => {
+                        if (!d) return;
+                        const li = document.createElement("li");
+                        li.textContent = String(d);
+                        ul.appendChild(li);
+                    });
+                    wrapper.appendChild(ul);
+                }
+
+                educationListEl.appendChild(wrapper);
+            });
+        }
+
+        function renderProjects(projects) {
+            projectsListEl.innerHTML = "";
+            const list = Array.isArray(projects) ? projects : [];
+
+            if (list.length === 0) {
+                projectsEmptyState.hidden = false;
+                return;
+            }
+
+            projectsEmptyState.hidden = true;
+
+            list.forEach((project) => {
+                if (!project || !project.name && !project.description) return;
+                const wrapper = document.createElement("div");
+                wrapper.className = "project-item";
+
+                const titleRow = document.createElement("div");
+                titleRow.className = "item-title-row";
+
+                const nameEl = document.createElement("div");
+                nameEl.className = "item-title-main";
+                nameEl.textContent = project.name || "Project";
+                titleRow.appendChild(nameEl);
+
+                wrapper.appendChild(titleRow);
+
+                if (project.description) {
+                    const descEl = document.createElement("div");
+                    descEl.className = "item-title-sub";
+                    descEl.textContent = project.description;
+                    wrapper.appendChild(descEl);
+                }
+
+                let hasTech = Array.isArray(project.tech) && project.tech.length > 0;
+                if (hasTech) {
+                    const techWrapper = document.createElement("div");
+                    techWrapper.className = "pill-list";
+                    project.tech.forEach((t) => {
+                        if (!t) return;
+                        const pill = document.createElement("span");
+                        pill.className = "pill-skill pill-skill-alt";
+                        pill.textContent = String(t);
+                        techWrapper.appendChild(pill);
+                    });
+                    wrapper.appendChild(techWrapper);
+                }
+
+                const bullets = Array.isArray(project.bullets) ? project.bullets : [];
+                if (bullets.length > 0) {
+                    const ul = document.createElement("ul");
+                    ul.className = "bullet-list small";
+                    bullets.forEach((b) => {
+                        if (!b) return;
+                        const li = document.createElement("li");
+                        li.textContent = String(b);
+                        ul.appendChild(li);
+                    });
+                    wrapper.appendChild(ul);
+                }
+
+                projectsListEl.appendChild(wrapper);
+            });
+        }
+
+        function renderIssues(issues, sectionIssues) {
+            renderIssuesList(issuesListEl, issues, "No issues detected.");
+
+            sectionIssuesContainer.innerHTML = "";
+            if (sectionIssues && typeof sectionIssues === "object") {
+                const sections = [
+                    ["Summary issues", sectionIssues.summary],
+                    ["Skills issues", sectionIssues.skills],
+                    ["Experience issues", sectionIssues.experience],
+                    ["Education issues", sectionIssues.education],
+                    ["Projects issues", sectionIssues.projects]
+                ];
+
+                sections.forEach(([label, list]) => {
+                    const block = renderSectionIssues(label, list);
+                    if (block) {
+                        sectionIssuesContainer.appendChild(block);
+                    }
+                });
+            }
+        }
+
+        function renderSuggestions(suggestions) {
+            suggestionsListEl.innerHTML = "";
+            const list = Array.isArray(suggestions) ? suggestions : [];
+
+            if (list.length === 0) {
+                const li = document.createElement("li");
+                li.textContent = "No suggestions returned.";
+                li.className = "muted";
+                suggestionsListEl.appendChild(li);
+                return;
+            }
+
+            list.forEach((s) => {
+                if (!s) return;
+                const li = document.createElement("li");
+                li.textContent = String(s);
+                suggestionsListEl.appendChild(li);
+            });
+        }
+
+        function renderImprovedBullets(bullets) {
+            // Normalize into a flat list of strings so the UI renders nicely and
+            // the “Copy all” button copies readable text.
+            const normalized = [];
+            if (Array.isArray(bullets)) {
+                bullets.forEach((b) => {
+                    if (!b) return;
+
+                    if (typeof b === "string") {
+                        normalized.push(b);
+                    } else if (typeof b === "object") {
+                        const improvedText = b.improved || b.original;
+                        if (improvedText) {
+                            normalized.push(String(improvedText));
+                        }
+                    }
+                });
+            }
+
+            lastImprovedBullets = normalized;
+            bulletsListEl.innerHTML = "";
+
+            if (lastImprovedBullets.length === 0) {
+                const li = document.createElement("li");
+                li.textContent = "No sample bullets provided.";
+                li.className = "muted";
+                bulletsListEl.appendChild(li);
+                copyBulletsBtn.disabled = true;
+                return;
+            }
+
+            lastImprovedBullets.forEach((text) => {
+                if (!text) return;
+                const li = document.createElement("li");
+                li.textContent = text;
+                bulletsListEl.appendChild(li);
+            });
+            copyBulletsBtn.disabled = false;
+        }
+
+        function renderAnalysis(data) {
+            const parsed = (data && data.parsed) || {};
+            const issues = Array.isArray(data && data.issues) ? data.issues : [];
+            const sectionIssues = data && data.sectionIssues;
+            const suggestions = Array.isArray(data && data.suggestions)
+                ? data.suggestions
+                : [];
+            const improvedBullets = data && data.improvedSampleBullets;
+
+            renderProfile(parsed);
+            renderSkills(parsed.skills || {});
+            renderExperience(parsed.experience || []);
+            renderEducation(parsed.education || []);
+            renderProjects(parsed.projects || []);
+            renderIssues(issues, sectionIssues);
+            renderSuggestions(suggestions);
+            renderImprovedBullets(improvedBullets);
+
+            analysisPlaceholder.hidden = true;
+            analysisContent.hidden = false;
+
+            if (window.innerWidth < 900) {
+                const rightColumn = document.querySelector(".column-right");
+                if (rightColumn && typeof rightColumn.scrollIntoView === "function") {
+                    rightColumn.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            }
+        }
+
+        async function analyzeResume() {
+            clearError();
+            copyStatusEl.textContent = "";
+
+            const rawText = (resumeTextarea.value || "").trim();
+            const targetRole = (targetRoleInput.value || "").trim();
+            const targetCompany = (targetCompanyInput.value || "").trim();
+
+            if (!rawText) {
+                showError("Please paste your resume text before running analysis.");
+                resumeTextarea.focus();
+                return;
+            }
+
+            const payload = {
+                text: rawText,
+                targetRole: targetRole || undefined,
+                targetCompany: targetCompany || undefined
+            };
+
+            setButtonLoading(analyzeBtn, true);
+
+            try {
+                const response = await fetch(apiUrl("/api/v1/resume/analyze-text"), {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const text = await response.text().catch(() => "");
+                    throw new Error(
+                        text || `Resume analysis failed with status ${response.status}.`
+                    );
+                }
+
+                const data = await response.json().catch(() => null);
+                const analysis = data && (data.analysis || data);
+
+                if (!analysis || typeof analysis !== "object" || !analysis.parsed) {
+                    throw new Error("Received an unexpected response shape from the server.");
+                }
+
+                renderAnalysis(data.analysis);
+            } catch (err) {
+                console.error(err);
+                showError(err && err.message ? err.message : "Failed to analyze resume.");
+            } finally {
+                setButtonLoading(analyzeBtn, false);
+            }
+        }
+
+        function clearFormAndAnalysis() {
+            targetRoleInput.value = "";
+            targetCompanyInput.value = "";
+            resumeTextarea.value = "";
+            clearError();
+            copyStatusEl.textContent = "";
+
+            analysisContent.hidden = true;
+            analysisPlaceholder.hidden = false;
+
+            // Reset visible content to default muted placeholders
+            setTextOrPlaceholder(profileNameEl, null, "Name not detected");
+            setTextOrPlaceholder(profileHeadlineEl, null, "Headline not detected");
+            setTextOrPlaceholder(profileLocationEl, null, "Location not detected");
+            profileContactEl.innerHTML = "";
+            const span = document.createElement("span");
+            span.textContent = "No contact details detected.";
+            span.className = "small-note";
+            profileContactEl.appendChild(span);
+
+            profileSummaryEl.textContent =
+                "Summary not detected. Consider adding a concise 2–3 sentence overview of your impact and focus areas.";
+            profileSummaryEl.classList.add("muted");
+
+            skillsEmptyState.hidden = false;
+            [
+                skillsLanguagesSection,
+                skillsFrameworksSection,
+                skillsDatabasesSection,
+                skillsCloudSection,
+                skillsToolsSection,
+                skillsOtherSection
+            ].forEach((section) => {
+                section.hidden = true;
+            });
+
+            experienceListEl.innerHTML = "";
+            experienceEmptyState.hidden = false;
+
+            educationListEl.innerHTML = "";
+            educationEmptyState.hidden = false;
+
+            projectsListEl.innerHTML = "";
+            projectsEmptyState.hidden = false;
+
+            renderIssuesList(issuesListEl, [], "No issues detected.");
+            sectionIssuesContainer.innerHTML = "";
+
+            renderSuggestions([]);
+            renderImprovedBullets([]);
+        }
+
+        async function copyAllBullets() {
+            copyStatusEl.textContent = "";
+            if (!lastImprovedBullets || lastImprovedBullets.length === 0) {
+                copyStatusEl.textContent = "No bullets to copy.";
+                return;
+            }
+
+            const text = lastImprovedBullets.join("\n");
+
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const temp = document.createElement("textarea");
+                    temp.value = text;
+                    temp.style.position = "fixed";
+                    temp.style.left = "-9999px";
+                    document.body.appendChild(temp);
+                    temp.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(temp);
+                }
+
+                copyStatusEl.textContent = "Copied all sample bullets.";
+            } catch (err) {
+                console.error(err);
+                copyStatusEl.textContent = "Unable to copy to clipboard.";
+            }
+
+            setTimeout(() => {
+                copyStatusEl.textContent = "";
+            }, 2500);
+        }
+
+        // Ensure error box is reset on initial load
+        clearError();
+
+        // Event listeners
+        analyzeBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            analyzeResume();
+        });
+
+        clearBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            clearFormAndAnalysis();
+        });
+
+        resumeTextarea.addEventListener("keydown", (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                e.preventDefault();
+                analyzeResume();
+            }
+        });
+
+        copyBulletsBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            copyAllBullets();
+        });
+    </script>
+</body>
+
+</html>
