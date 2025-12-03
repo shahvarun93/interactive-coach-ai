@@ -25,4 +25,32 @@ router.post("/analyze-text", async (req, res) => {
   }
 });
 
+router.post("/tailor", async (req, res) => {
+  try {
+    const { text, jobDescription, targetRole, targetCompany } = req.body || {};
+
+    if (!text || !jobDescription) {
+      return res.status(400).json({
+        error: "Both 'text' (resume) and 'jobDescription' are required.",
+      });
+    }
+
+    const result = await resumeService.tailorResumeFromText({
+      text,
+      jobDescription,
+      targetRole,
+      targetCompany,
+    });
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error("Error in /resume/tailor:", err);
+    return res.status(500).json({
+      error:
+        err?.message ||
+        "Failed to tailor resume for the given job description.",
+    });
+  }
+});
+
 export default router;

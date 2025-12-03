@@ -833,6 +833,16 @@
                             </p>
                         </div>
 
+                        <div class="field-group" style="margin-top: 6px;">
+                            <label for="jobDescriptionTextarea" class="field-label">Job description</label>
+                            <textarea id="jobDescriptionTextarea"
+                                placeholder="Paste the target job description here. The assistant will tailor your resume to this role."></textarea>
+                            <p class="hint">
+                                For best results, use the full job posting – responsibilities, basic/desired
+                                qualifications, and tech stack.
+                            </p>
+                        </div>
+
                         <div id="errorBox" class="alert alert-error" role="alert" hidden>
                             <div class="alert-icon">⚠</div>
                             <div class="alert-text" id="errorText">
@@ -845,7 +855,11 @@
                                 <span class="btn-spinner" aria-hidden="true"></span>
                                 <span class="btn-label">Analyze Resume</span>
                             </button>
-                            <button id="clearBtn" class="btn btn-secondary" type="button">
+                            <button id="tailorBtn" class="btn btn-secondary" type="button">
+                                <span class="btn-spinner" aria-hidden="true"></span>
+                                <span class="btn-label">Tailor to Job</span>
+                            </button>
+                            <button id="clearBtn" class="btn btn-ghost" type="button">
                                 Clear
                             </button>
                         </div>
@@ -1096,6 +1110,53 @@
                                 <div id="copyStatus" class="copy-status"></div>
                             </div>
                         </article>
+
+                        <!-- Card 9 – Tailored Resume Preview -->
+                        <article class="card" aria-labelledby="tailored-card-title" id="tailoredCard" hidden>
+                            <header class="card-header">
+                                <div class="card-header-main">
+                                    <h2 id="tailored-card-title" class="card-title">
+                                        Tailored Resume for Job
+                                        <span class="pill-label pill-label-soft">ATS-ready draft</span>
+                                    </h2>
+                                    <p class="card-subtitle">
+                                        Generated against the pasted job description. Copy as a starting point and
+                                        refine as needed.
+                                    </p>
+                                </div>
+                            </header>
+                            <div class="card-body">
+                                <div class="section-block">
+                                    <div class="section-heading">Rewritten summary</div>
+                                    <div id="tailoredSummary" class="summary-text muted">
+                                        No tailored summary generated yet.
+                                    </div>
+                                </div>
+
+                                <div class="section-block">
+                                    <div class="section-heading">Key tailoring notes</div>
+                                    <ul id="tailoredNotesList" class="issues-list">
+                                        <li class="muted">No tailoring notes yet.</li>
+                                    </ul>
+                                </div>
+
+                                <div class="section-block">
+                                    <div class="copy-row">
+                                        <span class="small-note">
+                                            Copy the full tailored resume text and use it as a base before uploading to
+                                            ATS.
+                                        </span>
+                                        <button id="copyTailoredBtn" class="btn btn-ghost btn-small" type="button">
+                                            Copy tailored resume
+                                        </button>
+                                    </div>
+                                    <pre id="tailoredFullText" class="summary-text code-like"
+                                        style="max-height: 220px; overflow: auto; white-space: pre-wrap;">
+No tailored resume generated yet.
+                                    </pre>
+                                </div>
+                            </div>
+                        </article>
                     </div>
                 </div>
             </section>
@@ -1116,6 +1177,8 @@
         const resumeTextarea = document.getElementById("resumeTextarea");
         const analyzeBtn = document.getElementById("analyzeBtn");
         const clearBtn = document.getElementById("clearBtn");
+        const jobDescriptionTextarea = document.getElementById("jobDescriptionTextarea");
+        const tailorBtn = document.getElementById("tailorBtn");
         const errorBox = document.getElementById("errorBox");
         const errorText = document.getElementById("errorText");
 
@@ -1168,7 +1231,83 @@
         copyBulletsBtn.disabled = true;
         const copyStatusEl = document.getElementById("copyStatus");
 
+        const tailoredCard = document.getElementById("tailoredCard");
+        const tailoredSummaryEl = document.getElementById("tailoredSummary");
+        const tailoredNotesListEl = document.getElementById("tailoredNotesList");
+        const tailoredFullTextEl = document.getElementById("tailoredFullText");
+        const copyTailoredBtn = document.getElementById("copyTailoredBtn");
+
         let lastImprovedBullets = [];
+        let lastTailoredFullText = "";
+
+        function renderTailoredResume(tailored) {
+            if (!tailored) {
+                if (tailoredCard) {
+                    tailoredCard.hidden = true;
+                }
+                if (tailoredSummaryEl) {
+                    tailoredSummaryEl.textContent = "No tailored summary generated yet.";
+                    tailoredSummaryEl.classList.add("muted");
+                }
+                if (tailoredNotesListEl) {
+                    tailoredNotesListEl.innerHTML = "";
+                    const li = document.createElement("li");
+                    li.textContent = "No tailoring notes yet.";
+                    li.className = "muted";
+                    tailoredNotesListEl.appendChild(li);
+                }
+                if (tailoredFullTextEl) {
+                    tailoredFullTextEl.textContent = "No tailored resume generated yet.";
+                }
+                lastTailoredFullText = "";
+                if (copyTailoredBtn) {
+                    copyTailoredBtn.disabled = true;
+                }
+                return;
+            }
+
+            if (tailoredCard) {
+                tailoredCard.hidden = false;
+            }
+
+            const summary = tailored.rewrittenSummary || "No tailored summary generated yet.";
+            if (tailoredSummaryEl) {
+                tailoredSummaryEl.textContent = summary;
+                if (tailored.rewrittenSummary) {
+                    tailoredSummaryEl.classList.remove("muted");
+                } else {
+                    tailoredSummaryEl.classList.add("muted");
+                }
+            }
+
+            if (tailoredNotesListEl) {
+                const notes = Array.isArray(tailored.notesForUser) ? tailored.notesForUser : [];
+                tailoredNotesListEl.innerHTML = "";
+                if (notes.length === 0) {
+                    const li = document.createElement("li");
+                    li.textContent = "No tailoring notes provided.";
+                    li.className = "muted";
+                    tailoredNotesListEl.appendChild(li);
+                } else {
+                    notes.forEach((note) => {
+                        if (!note) return;
+                        const li = document.createElement("li");
+                        li.textContent = String(note);
+                        tailoredNotesListEl.appendChild(li);
+                    });
+                }
+            }
+
+            const fullText = tailored.fullResumeText || "";
+            lastTailoredFullText = fullText;
+            if (tailoredFullTextEl) {
+                tailoredFullTextEl.textContent = fullText || "No tailored resume generated yet.";
+            }
+
+            if (copyTailoredBtn) {
+                copyTailoredBtn.disabled = !fullText;
+            }
+        }
 
         // Utilities
         function showError(message) {
@@ -1753,6 +1892,8 @@
             renderIssues(issues, sectionIssues);
             renderSuggestions(suggestions);
             renderImprovedBullets(improvedBullets);
+            // A plain analysis call should clear any previous tailored preview.
+            renderTailoredResume(null);
 
             analysisPlaceholder.hidden = true;
             analysisContent.hidden = false;
@@ -1763,6 +1904,40 @@
                     rightColumn.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
             }
+        }
+
+        async function copyAllBullets() {
+            copyStatusEl.textContent = "";
+            if (!lastImprovedBullets || lastImprovedBullets.length === 0) {
+                copyStatusEl.textContent = "No bullets to copy.";
+                return;
+            }
+
+            const text = lastImprovedBullets.join("\n");
+
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const temp = document.createElement("textarea");
+                    temp.value = text;
+                    temp.style.position = "fixed";
+                    temp.style.left = "-9999px";
+                    document.body.appendChild(temp);
+                    temp.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(temp);
+                }
+
+                copyStatusEl.textContent = "Copied all sample bullets.";
+            } catch (err) {
+                console.error(err);
+                copyStatusEl.textContent = "Unable to copy to clipboard.";
+            }
+
+            setTimeout(() => {
+                copyStatusEl.textContent = "";
+            }, 2500);
         }
 
         async function analyzeResume() {
@@ -1810,7 +1985,7 @@
                     throw new Error("Received an unexpected response shape from the server.");
                 }
 
-                renderAnalysis(data.analysis);
+                renderAnalysis(analysis);
             } catch (err) {
                 console.error(err);
                 showError(err && err.message ? err.message : "Failed to analyze resume.");
@@ -1819,10 +1994,89 @@
             }
         }
 
+        async function tailorResume() {
+            clearError();
+            copyStatusEl.textContent = "";
+
+            const rawText = (resumeTextarea.value || "").trim();
+            const jobDescription = (jobDescriptionTextarea.value || "").trim();
+            const targetRole = (targetRoleInput.value || "").trim();
+            const targetCompany = (targetCompanyInput.value || "").trim();
+
+            if (!rawText) {
+                showError("Please paste your resume text before tailoring.");
+                resumeTextarea.focus();
+                return;
+            }
+
+            if (!jobDescription) {
+                showError("Please paste the target job description before tailoring.");
+                jobDescriptionTextarea.focus();
+                return;
+            }
+
+            const payload = {
+                text: rawText,
+                jobDescription,
+                targetRole: targetRole || undefined,
+                targetCompany: targetCompany || undefined
+            };
+
+            setButtonLoading(tailorBtn, true);
+
+            try {
+                const res = await fetch(apiUrl("/api/v1/resume/tailor"), {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    const errBody = await res.json().catch(() => null);
+                    console.error("Tailor error:", errBody || res.status);
+                    const errMessage =
+                        (errBody && (errBody.error || errBody.message)) ||
+                        `Failed to tailor resume (status ${res.status}).`;
+                    showError(errMessage);
+                    return;
+                }
+
+                const data = await res.json().catch(() => null);
+                if (!data || typeof data !== "object") {
+                    throw new Error("Received an unexpected response shape from the server.");
+                }
+
+                renderTailoredResume(data);
+
+                // Make sure the right column becomes visible even if Analyze wasn't run yet
+                analysisPlaceholder.hidden = true;
+                analysisContent.hidden = false;
+
+                if (window.innerWidth < 900) {
+                    const rightColumn = document.querySelector(".column-right");
+                    if (rightColumn && typeof rightColumn.scrollIntoView === "function") {
+                        rightColumn.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                showError(
+                    err && err.message
+                        ? err.message
+                        : "Unexpected error while tailoring resume."
+                );
+            } finally {
+                setButtonLoading(tailorBtn, false);
+            }
+        }
+
         function clearFormAndAnalysis() {
             targetRoleInput.value = "";
             targetCompanyInput.value = "";
             resumeTextarea.value = "";
+            if (jobDescriptionTextarea) {
+                jobDescriptionTextarea.value = "";
+            }
             clearError();
             copyStatusEl.textContent = "";
 
@@ -1869,23 +2123,24 @@
 
             renderSuggestions([]);
             renderImprovedBullets([]);
+            renderTailoredResume(null);
         }
 
-        async function copyAllBullets() {
-            copyStatusEl.textContent = "";
-            if (!lastImprovedBullets || lastImprovedBullets.length === 0) {
-                copyStatusEl.textContent = "No bullets to copy.";
+        async function copyTailoredResume() {
+            if (!lastTailoredFullText) {
+                copyStatusEl.textContent = "No tailored resume text to copy.";
+                setTimeout(() => {
+                    copyStatusEl.textContent = "";
+                }, 2000);
                 return;
             }
 
-            const text = lastImprovedBullets.join("\n");
-
             try {
                 if (navigator.clipboard && navigator.clipboard.writeText) {
-                    await navigator.clipboard.writeText(text);
+                    await navigator.clipboard.writeText(lastTailoredFullText);
                 } else {
                     const temp = document.createElement("textarea");
-                    temp.value = text;
+                    temp.value = lastTailoredFullText;
                     temp.style.position = "fixed";
                     temp.style.left = "-9999px";
                     document.body.appendChild(temp);
@@ -1893,11 +2148,10 @@
                     document.execCommand("copy");
                     document.body.removeChild(temp);
                 }
-
-                copyStatusEl.textContent = "Copied all sample bullets.";
+                copyStatusEl.textContent = "Copied tailored resume text.";
             } catch (err) {
                 console.error(err);
-                copyStatusEl.textContent = "Unable to copy to clipboard.";
+                copyStatusEl.textContent = "Unable to copy tailored resume text.";
             }
 
             setTimeout(() => {
@@ -1930,6 +2184,20 @@
             e.preventDefault();
             copyAllBullets();
         });
+
+        if (copyTailoredBtn) {
+            copyTailoredBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                copyTailoredResume();
+            });
+        }
+
+        if (tailorBtn) {
+            tailorBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                tailorResume();
+            });
+        }
     </script>
 </body>
 

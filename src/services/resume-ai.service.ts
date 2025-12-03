@@ -252,3 +252,120 @@ IMPORTANT:
 
   return parsed as ResumeAnalysis;
 }
+
+const ParsedExperienceItemSchema = z.object({
+  title: z.string().nullable().optional(),
+  company: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  dateRange: z.string().nullable().optional(),
+  startDate: z.string().nullable().optional(),
+  endDate: z.string().nullable().optional(),
+  bullets: z.array(z.string()).nullable().optional(),
+});
+
+const TailoredResumeSchema = z.object({
+  rewrittenSummary: z.string().nullable().optional(),
+
+  // You already have ParsedSkillsSchema – reuse that:
+  rewrittenSkills: ParsedSkillsSchema.optional(),
+
+  rewrittenExperience: z
+  .union([
+    z.array(ParsedExperienceItemSchema),
+    z.record(z.string(), ParsedExperienceItemSchema), // object map: { "job1": {...}, ... }
+  ])
+  .optional()
+  .transform((val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    // val is Record<string, ParsedExperienceItemSchema>
+    return Object.values(val);
+  }),
+
+  // 👇 KEY FIX: accept string OR string[], normalize to string[]
+  notesForUser: z
+    .union([z.array(z.string()), z.string()])
+    .optional()
+    .transform((val) => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === "string" && val.trim()) return [val];
+      return [];
+    }),
+
+  fullResumeText: z.string().optional().default(""),
+});
+
+export type TailoredResumeResult = z.infer<typeof TailoredResumeSchema>;
+
+export async function tailorResumeToJobDescription(args: {
+  text: string;
+  jobDescription: string;
+  targetRole?: string;
+  targetCompany?: string;
+}): Promise<TailoredResumeResult> {
+  const { text, jobDescription, targetRole, targetCompany } = args;
+
+  const systemPrompt = `
+  You are an expert resume writer and hiring manager who specializes in:
+  - ATS-compliant resumes
+  - Senior backend and system design roles (FAANG and non-FAANG)
+  
+  You will receive:
+  1) The candidate's CURRENT resume as raw text.
+  2) The TARGET job description.
+  3) Optional target role / target company.
+  
+  Your job:
+  - Rewrite the resume to better match the job description and senior backend / system design expectations.
+  - Keep everything ATS-friendly: no tables, no fancy characters, no markdown.
+  - Keep it honest: do NOT invent experience or projects. Only rephrase, reorganize, and refocus what is already there.
+  - Strongly emphasize:
+    - measurable impact
+    - system design / architecture / scalability
+    - backend / distributed systems
+    - relevant cloud and tooling for large-scale systems.
+  
+  IMPORTANT:
+  - Output MUST be valid JSON matching the provided schema.
+  - "fullResumeText" must be a single plain-text resume ready to paste into a doc.
+  - Do NOT wrap the JSON in markdown fences.
+  `.trim();
+
+  const userContent = `
+  CURRENT RESUME (RAW TEXT)
+  -------------------------
+  ${text}
+  
+  TARGET JOB DESCRIPTION
+  ----------------------
+  ${jobDescription}
+  
+  TARGET ROLE (optional): ${targetRole || "N/A"}
+  TARGET COMPANY (optional): ${targetCompany || "N/A"}
+  
+  TASK:
+  1) Rewrite the entire resume in a stronger, senior-friendly style aligned with the JD.
+  2) Ensure it stays truthful to the candidate's experience.
+  3) Return:
+     - "fullResumeText": the complete revised resume, ATS-safe.
+     - "rewrittenSummary": improved summary only.
+     - "rewrittenSkills": cleaned and categorized skills (if possible).
+     - "rewrittenExperience": improved bullets per role (if you can structure them).
+     - "notesForUser": brief notes explaining the main changes.
+  `.trim();
+
+  const result =
+    await openAiClient.responsesClient.openAiClientJsonResponse<TailoredResumeResult>(
+      {
+        schema: TailoredResumeSchema,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        model: "gpt-4.1-mini",
+        temperature: 0.4,
+      }
+    );
+
+  return result;
+}

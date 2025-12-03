@@ -36,3 +36,12 @@ export async function analyzeResumeFromText(
     analysis,
   };
 }
+
+export async function tailorResumeFromText(input: {
+  text: string;
+  jobDescription: string;
+  targetRole?: string;
+  targetCompany?: string;
+}) {
+  return resumeAiService.tailorResumeToJobDescription(input);
+}
