@@ -1,6 +1,6 @@
 # System Design Co‑Pilot
 
-An AI‑powered **system design interview coach** and **study planner** built with Node.js, TypeScript, Postgres, and the OpenAI API.
+An AI‑powered **system design interview coach**, **study planner**, and **resume assistant** built with Node.js, TypeScript, Postgres, and the OpenAI API.
 
 The goal of this project is to simulate a realistic FAANG‑style system design prep experience:
 
@@ -34,6 +34,7 @@ System Design Co‑Pilot is a full‑stack application that helps you prepare fo
 - an **AI evaluator** that scores and critiques your design answers,
 - a **coach** that spots recurring patterns in your mistakes and suggests how to fix your mental model, and
 - a **study planner** that converts your stats into an actionable plan with recommended resources.
+- a **resume assistant** that analyzes and tailors your resume for system design–heavy backend roles.
 
 The stack is intentionally close to what you’d expect in a modern backend/AI service:
 
@@ -142,6 +143,16 @@ The backend also supports **semantic retrieval** using embeddings + pgvector:
   - embed it via OpenAI,
   - run a pgvector similarity search to pick the most relevant resources for that topic,
   - fall back to simple topic filtering if embeddings are missing.
+
+### 7. Resume Assistant (Analysis & Tailoring)
+
+The resume assistant lives alongside the system design coach and focuses on making your profile read like a strong backend / system design engineer:
+
+- **Resume analysis**: parses your resume into structured sections (header, summary, skills, experience, education, projects).
+- **Issue detection**: highlights missing signals for senior / FAANG‑style roles (lack of impact, weak system design keywords, no leadership, etc.).
+- **Improved bullets**: suggests stronger, impact‑driven bullets for key experience lines.
+- **Job‑specific tailoring**: given a job description + target role, generates an ATS‑friendly, tailored version of your summary and experience while preserving truthfulness.
+- **Uses the same OpenAI JSON + Zod pipeline** as the system design agents, so responses are strongly typed and safe to render.
 
 ---
 
@@ -281,6 +292,7 @@ Base path: `/api/v1`
 
 ## Front‑End UI
 
+
 The UI is a single HTML page (`public/index.html`) with minimal styling and vanilla JS.
 
 It supports:
@@ -297,6 +309,70 @@ It supports:
 - clicking into recommended resources (served from `public/*.html`).
 
 The UI is intentionally simple: it’s designed to showcase the backend + AI flows, not be a polished production UI.
+
+### Resume Assistant UI (`public/resume.html`)
+
+There is a separate single‑page UI for the resume assistant:
+
+- **Analyze Resume**  
+  - Paste plain‑text resume content or upload a PDF/DOCX.  
+  - Optionally provide a target role and target company.  
+  - Calls the backend to run `resume-ai.service` and returns:
+    - parsed structure (name, headline, skills, experience, education),
+    - issues & gaps,
+    - section‑level issues,
+    - improved sample bullets.
+
+- **Tailor to Job**  
+  - Uses your pasted/uploaded resume plus a job description to:
+    - rewrite the summary toward the target role,
+    - reshape skills to better match the stack,
+    - rewrite experience bullets to emphasize relevant impact,
+    - return a full, ATS‑ready resume text block you can copy out.
+
+- **Upload support**  
+  - `/api/v1/resume/extract-text` accepts file uploads (PDF/DOCX) using `multer`.  
+  - The server uses `pdf-parse` and `mammoth` to extract text safely on the backend before sending it to the OpenAI API.
+## MCP Integration (Cursor / Claude / ChatGPT Desktop)
+
+This project also exposes its core capabilities as **Model Context Protocol (MCP) servers** so that tools like Cursor, Claude Desktop, and (eventually) ChatGPT Desktop can call into your backend with natural language.
+
+### System Design MCP (`src/mcp/system-design-mcp.ts`)
+
+The **system design MCP server** (commonly configured with an ID like `sd-copilot-mcp`) exposes tools that let an LLM act as a thin client over your existing APIs and services:
+
+- `sd_recommend_resources` – given a user email, returns weak topics plus recommended system design resources grouped by topic.
+- `sd_next_question` – given a user email, returns the next practice question, topic, difficulty, and session ID using the same logic as `/system-design` in the API.
+- `sd_study_plan` – given a user email, returns the AI‑generated study plan JSON (profile summary, focus topics, recommended sequence, practice suggestions).
+
+Typical usage from an MCP‑aware client (e.g., Cursor):
+
+- Configure the MCP server to run `npm run mcp:sd`.
+- In a chat, say something like:  
+  _“Use the system design MCP to generate my next question for `test@example.com` and then summarize how I should approach it.”_  
+  The client will:
+  - detect that `sd_next_question` is the right tool,
+  - call it with `{ "email": "test@example.com" }`,
+  - feed the JSON result back into the LLM for explanation.
+
+### Resume MCP (`src/mcp/resume-analyze-mcp.ts`)
+
+The **resume MCP server** exposes tools to analyze and tailor resumes without going through the browser UI:
+
+- One tool for **resume analysis** (takes `resumeText`, optional `targetRole`, optional `targetCompany`, optional `jobDescription`) and returns the same `ResumeAnalysis` JSON used by the web UI.
+- One tool for **resume tailoring** (takes `resumeText` + `jobDescription` + optional targeting fields) and returns:
+  - `rewrittenSummary`
+  - `rewrittenSkills`
+  - `rewrittenExperience`
+  - `notesForUser`
+  - `fullResumeText` (ATS‑friendly draft)
+
+Example natural‑language usage in an MCP client:
+
+- _“Analyze this resume text for a Senior Backend role at a FinTech in Austin using the resume MCP.”_
+- _“Tailor my existing resume to this job description using the resume tailoring MCP tool.”_
+
+The client interprets these instructions, chooses the right MCP tool, and passes structured arguments (e.g., JSON with `resumeText` and `jobDescription`), then uses the JSON response to drive further reasoning or UI.
 
 ---
 
@@ -465,9 +541,12 @@ A few planned / potential enhancements:
   - Simple auth (e.g., magic link or OAuth) instead of free‑text email.
   - Hosted deployment (Render/Fly/Railway/etc.) behind a custom domain.
 
-- **Agent Framework Integration**
-  - The current design already has clear “agents by responsibility” (question, evaluator, coach, study planner).
-  - Future: experiment with LangGraph or MCP to expose DB and services as LLM‑callable tools for more advanced orchestration.
+- **Agent Framework & MCP Integration**
+  - The current design already has clear “agents by responsibility” (question, evaluator, coach, study planner, resume assistant).
+  - ✅ Initial MCP servers for:
+    - system design (study plan, next question, resource recommendations),
+    - resume analysis & tailoring.
+  - ⏩ Future: deeper LangGraph integration and richer MCP tool coverage (e.g., full session history, interactive chat‑style coaching).
 
 ---
 

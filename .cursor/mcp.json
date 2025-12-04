@@ -6,6 +6,13 @@
         "env": {
           "NODE_ENV": "development"
         }
+      },
+      "ra-copilot-mcp": {
+        "command": "npm",
+        "args": ["run", "mcp:ra"],
+        "env": {
+          "NODE_ENV": "development"
+        }
       }
     }
   }

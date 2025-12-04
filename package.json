@@ -3,7 +3,8 @@
     "dev": "ts-node src/index.ts",
     "cli:sd": "ts-node src/cli/sd-practice.ts",
     "seed:sd": "ts-node scripts/seed-sd-resources.ts",
-    "mcp:sd": "ts-node src/mcp/system-design-mcp.ts"
+    "mcp:sd": "ts-node src/mcp/system-design-mcp.ts",
+    "mcp:ra": "ts-node src/mcp/resume-analyze-mcp.ts"
   },
   "dependencies": {
     "@langchain/langgraph": "^1.0.2",
