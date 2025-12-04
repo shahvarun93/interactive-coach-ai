@@ -518,6 +518,24 @@
             opacity: 0.9;
         }
 
+        .divider.divider-or {
+            margin: 18px 0 12px;
+        }
+
+        .upload-field-group {
+            padding-top: 6px;
+            padding-bottom: 4px;
+        }
+
+        .upload-field-group input[type="file"] {
+            margin-top: 6px;
+            margin-bottom: 6px;
+        }
+
+        .upload-field-group .btn-ghost {
+            margin-top: 6px;
+        }
+
         .field-label-inline {
             font-size: 0.8rem;
             font-weight: 600;
@@ -831,6 +849,27 @@
                                 Tip: Include your full experience, skills, and projects – the assistant will highlight
                                 what’s missing for system design–heavy roles.
                             </p>
+                            <div class="divider divider-or">OR</div>
+                            <div class="field-group upload-field-group">
+                                <label for="resumeFileInput" class="field-label">Upload resume file</label>
+                                <input
+                                    id="resumeFileInput"
+                                    type="file"
+                                    accept=".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                />
+                                <p class="hint">
+                                    Upload a PDF, DOCX, or TXT version of your resume. We’ll extract the text and fill the box above.
+                                </p>
+                                <button
+                                    id="uploadExtractBtn"
+                                    class="btn btn-ghost btn-small"
+                                    type="button"
+                                    onclick="extractResumeFromFile()"
+                                >
+                                    <span class="btn-spinner" aria-hidden="true"></span>
+                                    <span class="btn-label">Extract from file</span>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="field-group" style="margin-top: 6px;">
@@ -1179,6 +1218,8 @@ No tailored resume generated yet.
         const clearBtn = document.getElementById("clearBtn");
         const jobDescriptionTextarea = document.getElementById("jobDescriptionTextarea");
         const tailorBtn = document.getElementById("tailorBtn");
+        const resumeFileInput = document.getElementById("resumeFileInput");
+        const uploadExtractBtn = document.getElementById("uploadExtractBtn");
         const errorBox = document.getElementById("errorBox");
         const errorText = document.getElementById("errorText");
 
@@ -1940,6 +1981,64 @@ No tailored resume generated yet.
             }, 2500);
         }
 
+        async function extractResumeFromFile() {
+            clearError();
+            copyStatusEl.textContent = "";
+
+            if (!resumeFileInput || !(resumeFileInput instanceof HTMLInputElement)) {
+                showError("File input not found in the page.");
+                return;
+            }
+
+            const file = resumeFileInput.files && resumeFileInput.files[0];
+            if (!file) {
+                showError("Please choose a resume file to upload.");
+                resumeFileInput.focus();
+                return;
+            }
+
+            if (uploadExtractBtn) {
+                setButtonLoading(uploadExtractBtn, true);
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append("file", file);
+
+                const response = await fetch(apiUrl("/api/v1/resume/extract-text"), {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const text = await response.text().catch(() => "");
+                    throw new Error(
+                        text || `Failed to extract text from file (status ${response.status}).`
+                    );
+                }
+
+                const data = await response.json().catch(() => null);
+                const extracted = data && (data.text || data.plainText || data.extractedText);
+
+                if (!extracted || typeof extracted !== "string") {
+                    throw new Error("Server did not return extracted text for this file.");
+                }
+
+                resumeTextarea.value = extracted;
+            } catch (err) {
+                console.error(err);
+                showError(
+                    err && err.message
+                        ? err.message
+                        : "Failed to extract text from resume file."
+                );
+            } finally {
+                if (uploadExtractBtn) {
+                    setButtonLoading(uploadExtractBtn, false);
+                }
+            }
+        }
+        
         async function analyzeResume() {
             clearError();
             copyStatusEl.textContent = "";
@@ -2076,6 +2175,9 @@ No tailored resume generated yet.
             resumeTextarea.value = "";
             if (jobDescriptionTextarea) {
                 jobDescriptionTextarea.value = "";
+            }
+            if (resumeFileInput) {
+                resumeFileInput.value = "";
             }
             clearError();
             copyStatusEl.textContent = "";

@@ -1,7 +1,14 @@
 // src/routes/users.ts
 import { Router } from "express";
+import multer from "multer";
 import * as resumeService from "../services/resume.service";
 const router = Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 2 MB is plenty for a resume
+  },
+});
 
 router.post("/analyze-text", async (req, res) => {
   try {
@@ -22,7 +29,7 @@ router.post("/analyze-text", async (req, res) => {
   } catch (e: any) {
     console.error("Error in /resume/analyze-text:", e);
     res.status(500).json({ error: "Failed to analyze resume" });
-  }
+  }   
 });
 
 router.post("/tailor", async (req, res) => {
@@ -52,5 +59,30 @@ router.post("/tailor", async (req, res) => {
     });
   }
 });
+
+router.post(
+  "/extract-text",
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const result = await resumeService.extractResumeTextFromFile(req.file);
+
+      return res.json({
+        text: result.text,  // what resume.html expects
+      });
+    } catch (err: any) {
+      console.error("extract-text error:", err);
+      res.status(500).json({
+        error:
+          err?.message ||
+          "Failed to extract text from resume file.",
+      });
+    }
+  }
+);
 
 export default router;
