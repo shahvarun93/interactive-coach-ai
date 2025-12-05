@@ -12,7 +12,7 @@ const upload = multer({
 
 router.post("/analyze-text", async (req, res) => {
   try {
-    const { text, targetRole, targetCompany } = req.body || {};
+    const { text, targetRole, targetCompany, mode } = req.body || {};
     const email = (req.body?.email ?? "").trim();
 
     if (!text || typeof text !== "string") {
@@ -24,6 +24,7 @@ router.post("/analyze-text", async (req, res) => {
         text,
         targetRole,
         targetCompany,
+        mode
       });
       res.json(result);
   } catch (e: any) {

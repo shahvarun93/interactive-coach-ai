@@ -5,6 +5,7 @@ export interface AnalyzeResumeTextInput {
   text: string;
   targetRole?: string;
   targetCompany?: string;
+  mode?: "firstPass" | "postTailor";
 }
 
 export interface AnalyzeResumeResult {

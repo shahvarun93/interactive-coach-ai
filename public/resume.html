@@ -762,6 +762,12 @@
             background: transparent;
         }
 
+        .panel-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
         @media (max-width: 600px) {
             header.app-header {
                 position: static;
@@ -852,20 +858,14 @@
                             <div class="divider divider-or">OR</div>
                             <div class="field-group upload-field-group">
                                 <label for="resumeFileInput" class="field-label">Upload resume file</label>
-                                <input
-                                    id="resumeFileInput"
-                                    type="file"
-                                    accept=".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                                />
+                                <input id="resumeFileInput" type="file"
+                                    accept=".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
                                 <p class="hint">
-                                    Upload a PDF, DOCX, or TXT version of your resume. We’ll extract the text and fill the box above.
+                                    Upload a PDF, DOCX, or TXT version of your resume. We’ll extract the text and fill
+                                    the box above.
                                 </p>
-                                <button
-                                    id="uploadExtractBtn"
-                                    class="btn btn-ghost btn-small"
-                                    type="button"
-                                    onclick="extractResumeFromFile()"
-                                >
+                                <button id="uploadExtractBtn" class="btn btn-ghost btn-small" type="button"
+                                    onclick="extractResumeFromFile()">
                                     <span class="btn-spinner" aria-hidden="true"></span>
                                     <span class="btn-label">Extract from file</span>
                                 </button>
@@ -1083,7 +1083,7 @@
                                         Issues &amp; Gaps
                                         <span class="pill-label">Flags</span>
                                     </h2>
-                                    <p class="card-subtitle">
+                                    <p id="issuesSubtitle" class="card-subtitle">
                                         Potential weak spots or inconsistencies that may confuse a reviewer.
                                     </p>
                                 </div>
@@ -1162,6 +1162,14 @@
                                         Generated against the pasted job description. Copy as a starting point and
                                         refine as needed.
                                     </p>
+                                </div>
+                                <div class="panel-actions">
+                                    <button id="applyTailoredBtn" class="btn btn-secondary" disabled>
+                                        Apply to editor
+                                    </button>
+                                    <button id="downloadTailoredBtn" class="btn btn-ghost" disabled>
+                                        Download .txt
+                                    </button>
                                 </div>
                             </header>
                             <div class="card-body">
@@ -1277,19 +1285,24 @@ No tailored resume generated yet.
         const tailoredNotesListEl = document.getElementById("tailoredNotesList");
         const tailoredFullTextEl = document.getElementById("tailoredFullText");
         const copyTailoredBtn = document.getElementById("copyTailoredBtn");
+        const applyTailoredBtn = document.getElementById("applyTailoredBtn");
+        const downloadTailoredBtn = document.getElementById("downloadTailoredBtn");
 
         let lastImprovedBullets = [];
         let lastTailoredFullText = "";
+        let isTailoredByAssistant = false;
 
         function renderTailoredResume(tailored) {
             if (!tailored) {
                 if (tailoredCard) {
                     tailoredCard.hidden = true;
                 }
+
                 if (tailoredSummaryEl) {
                     tailoredSummaryEl.textContent = "No tailored summary generated yet.";
                     tailoredSummaryEl.classList.add("muted");
                 }
+
                 if (tailoredNotesListEl) {
                     tailoredNotesListEl.innerHTML = "";
                     const li = document.createElement("li");
@@ -1297,16 +1310,25 @@ No tailored resume generated yet.
                     li.className = "muted";
                     tailoredNotesListEl.appendChild(li);
                 }
+
                 if (tailoredFullTextEl) {
                     tailoredFullTextEl.textContent = "No tailored resume generated yet.";
                 }
+
                 lastTailoredFullText = "";
+
                 if (copyTailoredBtn) {
                     copyTailoredBtn.disabled = true;
                 }
+                if (applyTailoredBtn) {
+                    applyTailoredBtn.disabled = true;
+                }
+                if (downloadTailoredBtn) {
+                    downloadTailoredBtn.disabled = true;
+                }
+
                 return;
             }
-
             if (tailoredCard) {
                 tailoredCard.hidden = false;
             }
@@ -1345,8 +1367,16 @@ No tailored resume generated yet.
                 tailoredFullTextEl.textContent = fullText || "No tailored resume generated yet.";
             }
 
+            const hasFullText = !!fullText;
+
             if (copyTailoredBtn) {
-                copyTailoredBtn.disabled = !fullText;
+                copyTailoredBtn.disabled = !hasFullText;
+            }
+            if (applyTailoredBtn) {
+                applyTailoredBtn.disabled = !hasFullText;
+            }
+            if (downloadTailoredBtn) {
+                downloadTailoredBtn.disabled = !hasFullText;
             }
         }
 
@@ -1981,6 +2011,46 @@ No tailored resume generated yet.
             }, 2500);
         }
 
+        function applyTailoredToEditor() {
+            clearError();
+
+            if (!lastTailoredFullText) {
+                showError("No tailored resume to apply yet. Run 'Tailor to Job' first.");
+                return;
+            }
+
+            // Overwrite the main resume editor with the tailored text
+            resumeTextarea.value = lastTailoredFullText;
+            // Mark that the current editor content came from the assistant's tailoring step
+            isTailoredByAssistant = true;
+
+            // Scroll to editor on mobile so user sees the change
+            if (window.innerWidth < 900 && typeof resumeTextarea.scrollIntoView === "function") {
+                resumeTextarea.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+        }
+
+        function downloadTailoredAsText() {
+            clearError();
+
+            if (!lastTailoredFullText) {
+                showError("No tailored resume to download yet. Run 'Tailor to Job' first.");
+                return;
+            }
+
+            const blob = new Blob([lastTailoredFullText], {
+                type: "text/plain;charset=utf-8"
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "tailored-resume.txt";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
         async function extractResumeFromFile() {
             clearError();
             copyStatusEl.textContent = "";
@@ -2038,7 +2108,7 @@ No tailored resume generated yet.
                 }
             }
         }
-        
+
         async function analyzeResume() {
             clearError();
             copyStatusEl.textContent = "";
@@ -2056,7 +2126,8 @@ No tailored resume generated yet.
             const payload = {
                 text: rawText,
                 targetRole: targetRole || undefined,
-                targetCompany: targetCompany || undefined
+                targetCompany: targetCompany || undefined,
+                mode: isTailoredByAssistant ? "postTailor" : "firstPass"
             };
 
             setButtonLoading(analyzeBtn, true);
@@ -2273,6 +2344,18 @@ No tailored resume generated yet.
         clearBtn.addEventListener("click", (e) => {
             e.preventDefault();
             clearFormAndAnalysis();
+            resumeTextarea.value = "";
+            jobDescriptionTextarea.value = "";
+            targetRoleInput.value = "";
+            targetCompanyInput.value = "";
+            // Reset tailored state
+            isTailoredByAssistant = false;
+            lastTailoredFullText = "";
+            renderTailoredResume(null);
+            clearError();
+            analysisPlaceholder.hidden = false;
+            analysisContent.hidden = true;
+            renderTailoredResume(null);
         });
 
         resumeTextarea.addEventListener("keydown", (e) => {
@@ -2287,18 +2370,46 @@ No tailored resume generated yet.
             copyAllBullets();
         });
 
-        if (copyTailoredBtn) {
-            copyTailoredBtn.addEventListener("click", (e) => {
-                e.preventDefault();
-                copyTailoredResume();
-            });
-        }
-
         if (tailorBtn) {
             tailorBtn.addEventListener("click", (e) => {
                 e.preventDefault();
                 tailorResume();
             });
+        }
+
+        if (copyTailoredBtn) {
+            copyTailoredBtn.addEventListener("click", async () => {
+                if (!lastTailoredFullText) {
+                    showError("No tailored resume to copy yet. Run 'Tailor to Job' first.");
+                    return;
+                }
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(lastTailoredFullText);
+                    } else {
+                        const temp = document.createElement("textarea");
+                        temp.value = lastTailoredFullText;
+                        temp.style.position = "fixed";
+                        temp.style.left = "-9999px";
+                        document.body.appendChild(temp);
+                        temp.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(temp);
+                    }
+                    copyTailoredResume();
+                } catch (err) {
+                    console.error(err);
+                    showError("Unable to copy tailored resume to clipboard.");
+                }
+            });
+        }
+
+        if (applyTailoredBtn) {
+            applyTailoredBtn.addEventListener("click", applyTailoredToEditor);
+        }
+
+        if (downloadTailoredBtn) {
+            downloadTailoredBtn.addEventListener("click", downloadTailoredAsText);
         }
     </script>
 </body>

@@ -34,6 +34,7 @@ export async function analyzeResumeFromText(
   const analysis = await resumeAiService.analyzeResumeText(input.text, {
     targetRole: input.targetRole,
     targetCompany: input.targetCompany,
+    mode: input.mode
   });
 
   // TODO: (optional) persist to DB, e.g. resume_analyses table
