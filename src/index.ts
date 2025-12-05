@@ -28,9 +28,8 @@ app.get("/practice", (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "index.html"));
 });
 
-// Simple HTML page for SD practice
-app.get("/practice", (_req, res) => {
-  res.sendFile(path.join(__dirname, "..", "public", "sd-practice.html"));
+app.get('/readyz', (_req, res) => {
+  res.status(200).send('ready');
 });
 
 app.listen(PORT, () => {

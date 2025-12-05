@@ -4,7 +4,7 @@ import { dbHealthCheck } from '../db';
 
 const router = Router();
 
-router.get('/health', async (_req, res) => {
+router.get('/', async (_req, res) => {
   try {
     const dbNow = await dbHealthCheck();
     res.json({

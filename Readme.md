@@ -551,4 +551,10 @@ A few planned / potential enhancements:
 ---
 
 This project is meant to be both a **learning playground** for AI‑powered system design coaching and a **demonstration** of how to build an end‑to‑end, production‑flavored AI feature with a real backend, database, and UI.
+
+#Kubernetes Instruction:
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/ingress.yaml
 |

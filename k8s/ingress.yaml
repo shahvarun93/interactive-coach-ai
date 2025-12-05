@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sd-copilot-ingress
+  namespace: sd-copilot
+  annotations:
+    kubernetes.io/ingress.class: "gce"   # GKE HTTP(S) Load Balancer
+spec:
+  rules:
+    - host: sd-copilot.example.com       # replace later with your real domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sd-copilot-service
+                port:
+                  number: 80
