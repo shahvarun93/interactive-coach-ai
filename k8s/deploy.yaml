@@ -28,13 +28,13 @@ spec:
               value: "3000"
           readinessProbe:
             httpGet:
-              path: /readyz
+              path: /api/v1/health/ready
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/health/live
               port: 3000
             initialDelaySeconds: 15
             periodSeconds: 20

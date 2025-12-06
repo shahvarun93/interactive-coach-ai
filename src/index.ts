@@ -28,10 +28,6 @@ app.get("/practice", (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "index.html"));
 });
 
-app.get('/readyz', (_req, res) => {
-  res.status(200).send('ready');
-});
-
 app.listen(PORT, () => {
   console.log(`API server running at http://localhost:${PORT}`);
 });
