@@ -30,8 +30,8 @@ spec:
             httpGet:
               path: /api/v1/health/ready
               port: 3000
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            initialDelaySeconds: 15
+            periodSeconds: 20
           livenessProbe:
             httpGet:
               path: /api/v1/health/live

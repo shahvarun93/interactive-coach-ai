@@ -5,6 +5,14 @@ import { dbHealthCheck } from '../db';
 const router = Router();
 
 router.get('/live', async (_req, res) => {
+  res.status(200).send('live');
+});
+
+router.get('/ready', (_req, res) => {
+  res.status(200).send('ready');
+});
+
+router.get('/dbhealth', async (_req, res) => {
   try {
     const dbNow = await dbHealthCheck();
     res.json({
@@ -18,10 +26,6 @@ router.get('/live', async (_req, res) => {
       error: 'DB check failed',
     });
   }
-});
-
-router.get('/ready', (_req, res) => {
-  res.status(200).send('ready');
 });
 
 export default router;
