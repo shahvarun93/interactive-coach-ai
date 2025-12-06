@@ -442,7 +442,6 @@ export CLUSTER_NAME=sd-copilot-cluster
 export REPO=sd-copilot
 export IMAGE_NAME=system-design-copilot
 export TAG=v1
-
 FULL_IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE_NAME:$TAG"
 
 gcloud config set project "$PROJECT_ID"
@@ -464,9 +463,13 @@ docker build -t sd-copilot:local .
 docker tag sd-copilot:local "$FULL_IMAGE"
 docker push "$FULL_IMAGE"
 
+gcloud artifacts docker images list "$REGISTRY_PATH" \
+  --include-tags \
+  --format='table(IMAGE, TAGS)'
+
 # 5) Apply Kubernetes manifests
 kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/deploy.yaml
 kubectl apply -f k8s/service.yaml
 kubectl apply -f k8s/ingress.yaml
 
@@ -503,8 +506,8 @@ kubectl port-forward svc/sd-copilot-service -n sd-copilot 8080:80
 
 Then in a browser or Postman:
 
-- `http://localhost:8080/healthz`
-- `http://localhost:8080/readyz`
+- `http://localhost:8080/health`
+- `http://localhost:8080/ready`
 - `http://localhost:8080/`
 
 Press `Ctrl + C` in the terminal to stop port-forwarding.
