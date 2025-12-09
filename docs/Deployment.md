@@ -190,8 +190,8 @@ npm run start
 Open in a browser:
 
 - `http://localhost:3000/`
-- `http://localhost:3000/healthz`
-- `http://localhost:3000/readyz`
+- `http://localhost:3000/api/v1/health/live`
+- `http://localhost:3000/api/v1/health/ready`
 
 Press `Ctrl + C` to stop the server when finished.
 
@@ -239,7 +239,7 @@ docker run --rm -p 3000:3000 \
   sd-copilot:local
 ```
 
-Visit `http://localhost:3000/` and `http://localhost:3000/healthz`. Press `Ctrl + C` to stop.
+Visit `http://localhost:3000/` and `http://localhost:3000/api/v1/health/live`. Press `Ctrl + C` to stop.
 
 ### 5.3 Tag and push to Artifact Registry
 
@@ -320,7 +320,8 @@ metadata:
   labels:
     app: sd-copilot
 spec:
-  replicas: 2
+  # Start with 1 replica (can be scaled up later as quotas allow)
+  replicas: 1
   selector:
     matchLabels:
       app: sd-copilot
@@ -344,13 +345,13 @@ spec:
               value: "3000"
           readinessProbe:
             httpGet:
-              path: /readyz
+              path: /api/v1/health/ready
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /api/v1/health/live
               port: 3000
             initialDelaySeconds: 15
             periodSeconds: 20
@@ -379,6 +380,8 @@ kind: Service
 metadata:
   name: sd-copilot-service
   namespace: sd-copilot
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
 spec:
   selector:
     app: sd-copilot
@@ -408,6 +411,11 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "gce"
 spec:
+  defaultBackend:
+    service:
+      name: sd-copilot-service
+      port:
+        number: 80
   rules:
     - http:
         paths:
@@ -463,13 +471,14 @@ docker build -t sd-copilot:local .
 docker tag sd-copilot:local "$FULL_IMAGE"
 docker push "$FULL_IMAGE"
 
-gcloud artifacts docker images list "$REGISTRY_PATH" \
+gcloud artifacts docker images list \
+  "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO" \
   --include-tags \
   --format='table(IMAGE, TAGS)'
 
 # 5) Apply Kubernetes manifests
 kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/deploy.yaml
+kubectl apply -f k8s/deployment.yaml
 kubectl apply -f k8s/service.yaml
 kubectl apply -f k8s/ingress.yaml
 
@@ -506,8 +515,8 @@ kubectl port-forward svc/sd-copilot-service -n sd-copilot 8080:80
 
 Then in a browser or Postman:
 
-- `http://localhost:8080/health`
-- `http://localhost:8080/ready`
+- `http://localhost:8080/api/v1/health/live`
+- `http://localhost:8080/api/v1/health/ready`
 - `http://localhost:8080/`
 
 Press `Ctrl + C` in the terminal to stop port-forwarding.
@@ -523,7 +532,8 @@ kubectl get ingress sd-copilot-ingress -n sd-copilot \
 
 Use the printed IP in Postman or a browser:
 
-- `http://<INGRESS_IP>/healthz`
+- `http://<INGRESS_IP>/api/v1/health/live`
+- `http://<INGRESS_IP>/api/v1/health/ready`
 - `http://<INGRESS_IP>/`
 
 DNS + Cloudflare configuration can later map a friendly domain to this IP.
@@ -582,14 +592,20 @@ If there is an issue, you can roll back by setting the image back to a previous 
   ```
 - Ensure the image tag in the Deployment exactly matches the pushed image.
 
-**Readiness probe failures (`connection refused` on /readyz)**
+**Readiness probe failures (`connection refused` on /api/v1/health/ready)**
 
-- The application is not listening on port `3000`, or `/readyz` is not implemented.
+- The application is not listening on port `3000`, or `/api/v1/health/ready` is not implemented.
 - Verify logs:
   ```bash
   kubectl logs deployment/sd-copilot-deployment -n sd-copilot --tail=100
   ```
-- Ensure the Express app defines `/healthz` and `/readyz` and that `PORT` is set to `3000`.
+- Ensure the Express app defines `/api/v1/health/live` and `/api/v1/health/ready` and that `PORT` is set to `3000`.
+
+**`getaddrinfo ENOTFOUND` connecting to Supabase Postgres from the pod**
+
+- Some Supabase "Direct Connection" endpoints are IPv6-only, while this GKE Autopilot cluster egress is IPv4-only.
+- From inside the pod, DNS lookups for the direct endpoint may return no IPv4 A records, causing `getaddrinfo ENOTFOUND`.
+- Fix: use the Supabase Transaction/Session Pooler connection string, which exposes an IPv4-compatible endpoint and is better suited to many short-lived connections from pods.
 
 **Missing environment variables / credentials**
 
