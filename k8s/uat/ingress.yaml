@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: sd-copilot-ingress
+  name: sd-copilot-ingress-uat
   namespace: sd-copilot
   annotations:
     kubernetes.io/ingress.class: "gce"
@@ -9,7 +9,7 @@ spec:
   # Default backend: anything that hits this LB goes here
   defaultBackend:
     service:
-      name: sd-copilot-service
+      name: sd-copilot-service-uat
       port:
         number: 80
 

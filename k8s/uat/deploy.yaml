@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sd-copilot-deployment
+  name: sd-copilot-deployment-uat
   namespace: sd-copilot
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: sd-copilot
+      app: sd-copilot-uat
   template:
     metadata:
       labels:
-        app: sd-copilot
+        app: sd-copilot-uat
     spec:
       containers:
-        - name: sd-copilot
-          image: sd-copilot:placeholder   # still using Option A, we override via kubectl set image
+        - name: sd-copilot-uat
+          image: sd-copilot-uat:placeholder   # still using Option A, we override via kubectl set image
           ports:
             - containerPort: 4000
           envFrom:
             - secretRef:
-                name: sd-copilot-secrets
+                name: sd-copilot-secrets-uat
           env:
             - name: NODE_ENV
               value: "uat"

@@ -5,7 +5,7 @@ metadata:
   namespace: sd-copilot
 spec:
   selector:
-    app: sd-copilot
+    app: sd-copilot-uat
   ports:
     - name: http
       port: 80
