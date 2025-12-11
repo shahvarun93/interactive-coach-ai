@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sd-copilot-deployment
+  namespace: sd-copilot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sd-copilot
+  template:
+    metadata:
+      labels:
+        app: sd-copilot
+    spec:
+      containers:
+        - name: sd-copilot
+          image: sd-copilot:placeholder   # still using Option A, we override via kubectl set image
+          ports:
+            - containerPort: 4000
+          envFrom:
+            - secretRef:
+                name: sd-copilot-secrets
+          env:
+            - name: NODE_ENV
+              value: "uat"
+            - name: PORT
+              value: "4000"
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: 4000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: 4000
+            initialDelaySeconds: 15
+            periodSeconds: 20

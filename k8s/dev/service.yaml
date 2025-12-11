@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sd-copilot-service-uat
+  namespace: sd-copilot
+spec:
+  selector:
+    app: sd-copilot
+  ports:
+    - name: http
+      port: 80
+      targetPort: 4000
+  type: ClusterIP

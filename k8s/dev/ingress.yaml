@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sd-copilot-ingress
+  namespace: sd-copilot
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+spec:
+  # Default backend: anything that hits this LB goes here
+  defaultBackend:
+    service:
+      name: sd-copilot-service
+      port:
+        number: 80
+
+  # (Optional, but fine to keep) explicit rule
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sd-copilot-service-uat
+                port:
+                  number: 80
