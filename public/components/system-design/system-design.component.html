@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>System Design Co-Pilot – Practice Dashboard</title>
+  <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+  <link rel="stylesheet" href="../../css/styles.css" />
+</head>
+
+<body>
+
+  <main class="container" style="padding:60px 0;">
+    <h2 class="hero-heading" style="text-align:center;">Practice System Design Interviews</h2>
+    <p class="hero-subtext" style="text-align:center; max-width:700px; margin:0 auto 40px;">
+      Generate realistic prompts, draft answers, and receive targeted AI feedback to sharpen your architecture
+      reasoning.
+    </p>
+    <!-- SESSION / EMAIL -->
+    <section class="card">
+      <div class="card-header">
+        <h3 class="card-title">Session Setup</h3>
+        <div id="globalStatus" class="card-status">
+          <span class="global-status-text">Ready</span>
+        </div>
+      </div>
+      <p class="card-desc">
+        Enter your email to load personalized stats and enable system design practice.
+      </p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;">
+        <input id="emailInput" type="email" placeholder="you@example.com"
+          style="flex:1;min-width:240px;border-radius:999px;padding:8px 12px;border:1px solid var(--border);font-size:0.9rem;">
+        <button id="loadStatsBtn" class="btn btn-secondary">Load Stats / History</button>
+      </div>
+    </section>
+
+    <!-- MAIN GRID: Question / Answer / Coach -->
+    <section class="cards">
+
+      <!-- QUESTION CARD -->
+      <!-- QUESTION CARD -->
+      <article class="card">
+        <div class="card-header">
+          <h3 class="card-title">Question</h3>
+          <div id="questionStatus" class="card-status">
+            <span class="card-status-text">Idle</span>
+          </div>
+        </div>
+        <p class="card-desc">Generate a new system design interview prompt and view metadata.</p>
+
+        <!-- ✅ INLINE BUTTONS -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+          <button id="generateQuestionBtn" class="btn btn-primary" style="flex:1;">Generate Question</button>
+          <button id="clearQuestionBtn" class="btn btn-secondary" style="flex:1;">Clear Question</button>
+        </div>
+
+        <div class="meta-grid"
+          style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;font-size:0.9rem;margin-bottom:8px;">
+          <div>Topic: <span id="topicText">—</span></div>
+          <div>Difficulty: <span id="difficultyText">—</span></div>
+          <div>Session ID: <span id="sessionIdText">—</span></div>
+        </div>
+
+        <div id="questionText" class="question-text question-empty"
+          style="border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--bg);min-height:80px;">
+          Click “Generate Question” to get started.
+        </div>
+      </article>
+
+      <!-- ANSWER CARD -->
+      <article class="card">
+        <div class="card-header">
+          <h3 class="card-title">Answer</h3>
+          <div id="answerStatus" class="card-status">
+            <span class="card-status-text">Waiting for your answer</span>
+          </div>
+        </div>
+        <p class="card-desc">Write your solution and submit it for scoring.</p>
+        <textarea id="answerInput" rows="8" placeholder="Describe your system design..."
+          style="width:100%;border-radius:12px;border:1px solid var(--border);padding:10px;font-family:var(--font-sans);font-size:0.9rem;"></textarea>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+          <button id="submitAnswerBtn" class="btn btn-primary">Submit Answer</button>
+          <button id="clearAnswerBtn" class="btn btn-secondary">Clear</button>
+        </div>
+        <div id="lastScore" style="margin-top:10px;display:none;font-weight:600;">Score: —</div>
+      </article>
+
+      <!-- COACH FEEDBACK CARD -->
+      <article class="card">
+        <div class="card-header">
+          <h3 class="card-title">Coach Feedback</h3>
+          <div id="coachStatus" class="card-status">
+            <span class="card-status-text">Idle</span>
+          </div>
+        </div>
+        <p class="card-desc">AI-powered feedback on your answer quality and focus areas.</p>
+
+        <button id="getCoachFeedbackBtn" class="btn btn-primary" style="margin-bottom:12px;">Get Feedback</button>
+
+        <div class="coach-meta" style="font-size:0.9rem;margin-bottom:10px;">
+          <div>Score: <span id="coachScoreText">—</span></div>
+          <div>Topic: <span id="coachTopicText">—</span></div>
+          <div>Difficulty: <span id="coachDifficultyText">—</span></div>
+        </div>
+
+        <div class="coach-section">
+          <h4>Summary</h4>
+          <p id="coachSummaryText" class="question-text">Run feedback to see analysis summary.</p>
+        </div>
+
+        <div class="coach-section">
+          <h4>Strengths</h4>
+          <ul id="coachStrengthsList" class="list">
+            <li class="muted">No feedback yet.</li>
+          </ul>
+        </div>
+
+        <div class="coach-section">
+          <h4>Areas to Improve</h4>
+          <ul id="coachWeaknessesList" class="list">
+            <li class="muted">No feedback yet.</li>
+          </ul>
+        </div>
+
+        <div class="coach-section">
+          <h4>Next Practice</h4>
+          <p id="coachNextPractice" class="question-text">—</p>
+        </div>
+
+        <div class="coach-section">
+          <h4>Recommended Resources</h4>
+          <div id="coachResources" class="tag-row"><span class="muted">No resources yet.</span></div>
+        </div>
+      </article>
+    </section>
+
+    <!-- STUDY PLAN & HISTORY -->
+    <section class="card" id="studyPlanCard" style="margin-top:30px;">
+      <div class="card-header">
+        <h3 class="card-title">Study Plan & History</h3>
+        <div id="studyStatus" class="card-status">
+          <span class="card-status-text">Idle</span>
+        </div>
+      </div>
+      <p class="card-desc">Focus topics, next steps, and your recent sessions.</p>
+
+      <div class="study-block">
+        <h4>Profile Summary</h4>
+        <div id="studyProfileSummary" class="question-text">Load stats to view your plan.</div>
+      </div>
+
+      <div class="study-block">
+        <h4>Focus Topics</h4>
+        <div id="studyFocusTopics" class="tag-row"><span class="muted">No data yet.</span></div>
+      </div>
+
+      <div class="study-block">
+        <h4>Recommended Steps</h4>
+        <ul id="studyStepsList" class="list">
+          <li class="muted">No steps yet.</li>
+        </ul>
+      </div>
+
+      <div class="study-block">
+        <h4>Recent Sessions</h4>
+        <div id="historyViewPretty" class="history-scroll">
+          <div class="muted">No history yet.</div>
+        </div>
+        <pre id="historyViewRaw" class="code-block" style="display:none;"></pre>
+        <button id="toggleHistoryRawBtn" class="btn btn-secondary" style="margin-top:10px;">Raw JSON</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Global loading overlay -->
+  <div id="globalOverlay" class="global-overlay">
+    <div class="spinner"></div>
+  </div>
+</body>
+
+</html>

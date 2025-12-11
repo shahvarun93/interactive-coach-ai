@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>System Design Co-Pilot – Resume Assistant</title>
+
+  <!-- Existing shared styles & Inter font -->
+  <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+  <link rel="stylesheet" href="../../css/styles.css" />
+
+  <style>
+    :host {
+      --bg-page: #f5f7fb;
+      --bg-card: #ffffff;
+      --border-subtle: #e5e7eb;
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --shadow-soft: 0 14px 30px rgba(15, 23, 42, 0.06);
+
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Inter", "Segoe UI", sans-serif;
+      color: var(--text-main);
+      display: block;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+    }
+
+    main.container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 32px 16px 40px;
+    }
+
+    @media (min-width: 1024px) {
+      main.container {
+        padding: 40px 8px 52px;
+      }
+    }
+
+    h2,
+    h3 {
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    /* Header section */
+    .page-header {
+      text-align: center;
+      max-width: 720px;
+      margin: 0 auto 28px;
+    }
+
+    .page-header h2 {
+      font-size: 1.4rem;
+      margin-bottom: 6px;
+    }
+
+    @media (min-width: 768px) {
+      .page-header h2 {
+        font-size: 1.6rem;
+      }
+    }
+
+    .page-header p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Card + layout */
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      box-shadow: var(--shadow-soft);
+      padding: 16px 16px 18px;
+    }
+
+    @media (min-width: 768px) {
+      .card {
+        padding: 18px 18px 20px;
+      }
+    }
+
+    .card.upload-card {
+      margin-bottom: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .card-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+
+    .card-status {
+      font-size: 0.78rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #f3f4ff;
+      color: #3730a3;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid #c7d2fe;
+      white-space: nowrap;
+    }
+
+    .card-status.loading {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .card-status.error {
+      background: #fee2e2;
+      color: #b91c1c;
+      border-color: #fecaca;
+    }
+
+    .card-status.success {
+      background: #ecfdf5;
+      color: #047857;
+      border-color: #bbf7d0;
+    }
+
+    .card-status-text {
+      line-height: 1.2;
+    }
+
+    /* Upload form */
+    .upload-form {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .file-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    #resumeFileInput {
+      margin-top: 6px;
+      font-size: 0.86rem;
+    }
+
+    .upload-form small {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .feedback-box {
+      border-radius: var(--radius-md);
+      border: 1px dashed var(--border-subtle);
+      background: #f9fafb;
+      padding: 10px 12px;
+      margin-top: 10px;
+    }
+
+    .feedback-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feedback-header p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Inputs */
+    .input-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    textarea,
+    input[type="text"] {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
+      padding: 8px 10px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      background: #f9fafb;
+      outline: none;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease,
+        background 0.16s ease;
+    }
+
+    textarea:focus,
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      background: #ffffff;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 120px;
+      line-height: 1.5;
+    }
+
+    /* Buttons */
+    .btn {
+      border-radius: 999px;
+      border: none;
+      padding: 7px 14px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      transition: background 0.12s ease, transform 0.08s ease,
+        box-shadow 0.12s ease, opacity 0.1s ease;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 10px 22px rgba(37, 99, 235, 0.35);
+    }
+
+    .btn-primary:hover {
+      background: #1d4ed8;
+      box-shadow: 0 12px 26px rgba(37, 99, 235, 0.4);
+      transform: translateY(-0.5px);
+    }
+
+    .btn-secondary {
+      background: #eef2ff;
+      color: #3730a3;
+      border: 1px solid #c7d2fe;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e7ff;
+      transform: translateY(-0.5px);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      padding-inline: 10px;
+    }
+
+    .btn-ghost:hover {
+      background: rgba(148, 163, 184, 0.08);
+    }
+
+    .btn-small {
+      padding: 5px 10px;
+      font-size: 0.8rem;
+    }
+
+    .btn[disabled] {
+      opacity: 0.6;
+      cursor: default;
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* Layout grid */
+    .resume-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
+      gap: 16px;
+      align-items: flex-start;
+      margin: 24px 0 0;
+    }
+
+    @media (max-width: 900px) {
+      .resume-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    /* Buttons row under resume input */
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    /* Analysis card */
+    .analysis-output {
+      margin-top: 4px;
+      font-size: 0.88rem;
+      color: var(--text-main);
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    @media (max-width: 768px) {
+      .analysis-output {
+        max-height: none;
+      }
+    }
+
+    .analysis-output .placeholder {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .section-block {
+      margin-top: 8px;
+    }
+
+    .section-heading {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .issues-list {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 0.86rem;
+      line-height: 1.4;
+    }
+
+    .issues-list li + li {
+      margin-top: 2px;
+    }
+
+    .issues-section-subheading {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-top: 4px;
+      margin-bottom: 2px;
+    }
+
+    .highlight-card {
+      background: linear-gradient(135deg, #eff6ff, #fefce8);
+      border-color: rgba(129, 140, 248, 0.8);
+      box-shadow: 0 14px 30px rgba(129, 140, 248, 0.28);
+    }
+
+    .highlight-card .card-title {
+      color: #1f2937;
+    }
+
+    .highlight-card .card-subtitle {
+      color: #4b5563;
+    }
+
+    .muted {
+      color: var(--text-muted);
+    }
+
+    /* Results section (bullets + tailored card) */
+    .results-section {
+      margin-top: 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card-subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .pill-label,
+    .pill-label-soft {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      color: #4b5563;
+      background: #f3f4f6;
+    }
+
+    .pill-label-soft {
+      border-color: #c7d2fe;
+      background: #eef2ff;
+      color: #3730a3;
+    }
+
+    .copy-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+
+    .small-note {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      max-width: 70%;
+    }
+
+    @media (max-width: 640px) {
+      .small-note {
+        max-width: 100%;
+      }
+    }
+
+    .bullet-list.small {
+      font-size: 0.86rem;
+      padding-left: 18px;
+      margin: 0;
+    }
+
+    .bullet-list.small li + li {
+      margin-top: 2px;
+    }
+
+    .copy-status {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      min-height: 1em;
+    }
+
+    .panel-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .summary-text {
+      font-size: 0.86rem;
+      line-height: 1.5;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      background: #f9fafb;
+      padding: 8px 9px;
+      white-space: pre-wrap;
+    }
+
+    .code-like {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+    }
+
+    @media (max-width: 480px) {
+      .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .feedback-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .btn-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container" style="padding:0;">
+    <!-- Header -->
+    <section class="page-header">
+      <h2>Optimize Your Resume</h2>
+      <p>
+        Upload your resume or paste it below, specify your target role and job description, and get instant AI-powered
+        feedback to improve your profile.
+      </p>
+    </section>
+
+    <!-- Upload Resume -->
+    <section class="card upload-card">
+      <div class="card-header">
+        <h3 class="card-title">Upload Resume</h3>
+        <div id="uploadStatus" class="card-status">
+          <span class="card-status-text">Waiting for upload</span>
+        </div>
+      </div>
+
+      <p class="card-desc">
+        Upload your PDF or DOCX resume to extract its text automatically.
+      </p>
+
+      <form id="resumeUploadForm" class="upload-form">
+        <label for="resumeFileInput" class="file-label">Choose Resume File</label>
+        <input type="file" id="resumeFileInput" accept=".pdf,.doc,.docx" />
+        <small>Supported formats: PDF, DOC, DOCX</small>
+      </form>
+
+      <div id="uploadFeedback" class="feedback-box">
+        <div class="feedback-header">
+          <p>No file uploaded yet.</p>
+          <button id="extractFromFileBtn" class="btn btn-secondary" type="button">
+            Extract from File
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Resume Input and Analysis (2-column layout) -->
+    <section class="resume-grid">
+      <!-- Resume Input -->
+      <article class="card">
+        <h3 class="card-title">Resume Text</h3>
+        <p class="card-desc">
+          Paste or edit your resume content below. Uploaded files will populate this field automatically.
+        </p>
+
+        <textarea
+          id="resumeText"
+          rows="12"
+          placeholder="Paste or view extracted resume text here..."></textarea>
+
+        <div style="margin-top:14px;">
+          <label for="targetRole" class="input-label">Target Role</label>
+          <input
+            id="targetRole"
+            type="text"
+            placeholder="e.g., Senior Backend Engineer" />
+        </div>
+
+        <div style="margin-top:14px;">
+          <label for="targetCompany" class="input-label">Target Company (optional)</label>
+          <input
+            id="targetCompany"
+            type="text"
+            placeholder="e.g., Google, Meta, Netflix..." />
+        </div>
+
+        <div style="margin-top:14px;">
+          <label for="jobDescription" class="input-label">Job Description (optional)</label>
+          <textarea
+            id="jobDescription"
+            rows="6"
+            placeholder="Paste the job description here..."></textarea>
+        </div>
+
+        <div class="btn-row">
+          <button id="analyzeResumeBtn" class="btn btn-primary" type="button">
+            Analyze Resume
+          </button>
+          <button id="tailorJobBtn" class="btn btn-secondary" type="button">
+            Tailor to Job
+          </button>
+          <button id="clearResumeBtn" class="btn btn-ghost" type="button">
+            Clear
+          </button>
+        </div>
+      </article>
+
+      <!-- Analysis Output -->
+      <article class="card">
+        <div class="card-header">
+          <h3 class="card-title">Analysis &amp; Suggestions</h3>
+          <div id="analysisStatus" class="card-status">
+            <span class="card-status-text">Idle</span>
+          </div>
+        </div>
+        <div id="analysisOutput" class="analysis-output">
+          <p class="placeholder">
+            No analysis yet. Paste your resume and click “Analyze Resume”.
+          </p>
+        </div>
+      </article>
+    </section>
+
+    <!-- Results Section -->
+    <section class="results-section">
+      <!-- Improved Sample Bullets -->
+      <article class="card" id="improvedBulletsCard" hidden>
+        <header class="card-header">
+          <div class="card-header-main">
+            <h2 class="card-title">
+              Improved Sample Bullets
+              <span class="pill-label">Examples</span>
+            </h2>
+            <p class="card-subtitle">
+              Use these as inspiration to rewrite your own experience bullets in a stronger, impact-driven style.
+            </p>
+          </div>
+        </header>
+        <div class="card-body">
+          <div class="copy-row">
+            <span class="small-note">
+              Copy and adapt, don’t paste verbatim – keep them true to your experience.
+            </span>
+            <button id="copyBulletsBtn" class="btn btn-ghost btn-small" type="button">
+              Copy all
+            </button>
+          </div>
+          <ul id="bulletsList" class="bullet-list small">
+            <li class="muted">No sample bullets provided.</li>
+          </ul>
+          <div id="copyStatus" class="copy-status"></div>
+        </div>
+      </article>
+
+      <!-- Tailored Resume Preview -->
+      <article class="card" id="tailoredCard">
+        <header class="card-header">
+          <div class="card-header-main">
+            <h2 class="card-title">
+              Tailored Resume for Job
+              <span class="pill-label pill-label-soft">ATS-ready draft</span>
+            </h2>
+            <p class="card-subtitle">
+              Generated against the pasted job description. Copy as a starting point and refine as needed.
+            </p>
+          </div>
+          <div class="panel-actions">
+            <button id="applyTailoredBtn" class="btn btn-secondary" disabled>
+              Apply to editor
+            </button>
+            <button id="downloadTailoredBtn" class="btn btn-ghost" disabled>
+              Download .txt
+            </button>
+          </div>
+        </header>
+        <div class="card-body">
+          <div class="section-block">
+            <div class="section-heading">Rewritten summary</div>
+            <div id="tailoredSummary" class="summary-text muted">
+              No tailored summary generated yet.
+            </div>
+          </div>
+          <div class="section-block">
+            <div class="section-heading">Key tailoring notes</div>
+            <ul id="tailoredNotesList" class="issues-list">
+              <li class="muted">No tailoring notes yet.</li>
+            </ul>
+          </div>
+          <div class="section-block">
+            <div class="copy-row">
+              <span class="small-note">
+                Copy the full tailored resume text and use it as a base before uploading to ATS.
+              </span>
+              <button id="copyTailoredBtn" class="btn btn-ghost btn-small" type="button">
+                Copy tailored resume
+              </button>
+            </div>
+            <pre
+              id="tailoredFullText"
+              class="summary-text code-like"
+              style="max-height: 220px; overflow:auto;">
+No tailored resume generated yet.
+            </pre>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
