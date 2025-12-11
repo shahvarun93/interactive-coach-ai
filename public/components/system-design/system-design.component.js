@@ -23,7 +23,7 @@ class SystemDesign extends HTMLElement {
     // ==============================
     // Configuration
     // ==============================
-    this.BASE_URL = "http://localhost:3000";
+    this.BASE_URL = "http://136.110.204.182";
 
     this.apiUrl = (path) => this.BASE_URL + path;
 
