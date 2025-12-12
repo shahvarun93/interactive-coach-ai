@@ -477,10 +477,10 @@ gcloud artifacts docker images list \
   --format='table(IMAGE, TAGS)'
 
 # 5) Apply Kubernetes manifests
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/service.yaml
-kubectl apply -f k8s/ingress.yaml
+kubectl apply -f k8s/prod/namespace.yaml
+kubectl apply -f k8s/prod/deploy.yaml
+kubectl apply -f k8s/prod/service.yaml
+kubectl apply -f k8s/prod/ingress.yaml
 
 # 6) Create/update secrets (requires k8s/secrets.env)
 kubectl delete secret sd-copilot-secrets -n sd-copilot 2>/dev/null || true

@@ -1,0 +1,22 @@
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
+export PROJECT_ID=system-design-copilot-140494
+export REGION=us-central1
+export CLUSTER_NAME=sd-copilot-cluster
+export REPO=sd-copilot
+export IMAGE_NAME=system-design-copilot
+export TAG=${1}
+FULL_IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE_NAME:$TAG"
+
+echo "$FULL_IMAGE"
+
+docker build -t sd-copilot:local . -f DOCKERFILE
+docker tag sd-copilot:local "$FULL_IMAGE"
+docker push "$FULL_IMAGE"
+
+kubectl apply -f k8s/prod/deploy.yaml
+kubectl apply -f k8s/prod/service.yaml
+kubectl set image deployment/sd-copilot-deployment \
+  sd-copilot="$FULL_IMAGE" \
+  -n sd-copilot
+
+kubectl get po -n sd-copilot
