@@ -23,7 +23,7 @@ class SystemDesign extends HTMLElement {
     // ==============================
     // Configuration
     // ==============================
-    this.BASE_URL = "http://136.110.204.182";
+    this.BASE_URL = "http://34.149.127.45";
 
     this.apiUrl = (path) => this.BASE_URL + path;
 

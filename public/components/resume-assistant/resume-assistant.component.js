@@ -33,7 +33,7 @@ class ResumeAssistant extends HTMLElement {
 
     this.shadowRoot.innerHTML = html;
 
-    this.baseUrl = "http://136.110.204.182"; // keep dev URL
+    this.baseUrl = "http://34.149.127.45"; // keep dev URL
     this.bindElements();
     this.bindEvents();
 
