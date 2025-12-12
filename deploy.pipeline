@@ -19,4 +19,5 @@ kubectl set image deployment/sd-copilot-deployment \
   sd-copilot="$FULL_IMAGE" \
   -n sd-copilot
 
-kubectl get po -n sd-copilot
+POD_LOGS=$(kubectl get po -n sd-copilot)
+echo "${POD_LOGS}"
