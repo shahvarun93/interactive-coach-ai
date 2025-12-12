@@ -33,7 +33,7 @@ class ResumeAssistant extends HTMLElement {
 
     this.shadowRoot.innerHTML = html;
 
-    this.baseUrl = "http://34.149.127.45"; // keep dev URL
+    // this.baseUrl = "http://34.149.127.45"; // keep dev URL
     this.bindElements();
     this.bindEvents();
 
@@ -180,7 +180,7 @@ class ResumeAssistant extends HTMLElement {
     this.setStatus("uploadStatus", "loading", "Extracting text...");
 
     try {
-      const res = await fetch(`${this.baseUrl}/api/v1/resume/extract-text`, {
+      const res = await fetch(`/api/v1/resume/extract-text`, {
         method: "POST",
         body: formData,
       });
@@ -229,7 +229,7 @@ class ResumeAssistant extends HTMLElement {
     this.setButtonLoading(this.analyzeBtn, true);
 
     try {
-      const res = await fetch(`${this.baseUrl}/api/v1/resume/analyze-text`, {
+      const res = await fetch(`/api/v1/resume/analyze-text`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -309,7 +309,7 @@ class ResumeAssistant extends HTMLElement {
     this.setButtonLoading(this.tailorBtn, true);
 
     try {
-      const res = await fetch(`${this.baseUrl}/api/v1/resume/tailor`, {
+      const res = await fetch(`/api/v1/resume/tailor`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

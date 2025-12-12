@@ -23,9 +23,9 @@ class SystemDesign extends HTMLElement {
     // ==============================
     // Configuration
     // ==============================
-    this.BASE_URL = "http://34.149.127.45";
+    // this.BASE_URL = "http://34.149.127.45";
 
-    this.apiUrl = (path) => this.BASE_URL + path;
+    this.apiUrl = (path) => path;
 
     // ==============================
     // DOM Elements
