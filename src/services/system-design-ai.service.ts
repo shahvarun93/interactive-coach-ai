@@ -163,7 +163,7 @@ Return exactly the question text only.
 
   try {
     const payload = await responsesClient.openAiClientJsonResponse({
-      model: "gpt-4.1-mini",
+      model: "gpt-5",
       messages: [
         {
           role: "system",
@@ -318,7 +318,7 @@ Rules:
   try {
     const payload =
       await responsesClient.openAiClientJsonResponse<CoachFeedbackResponse>({
-        model: "gpt-4.1-mini",
+        model: "gpt-5",
         temperature: 0.4, //	•	Coaching should be consistent and grounded, not creative. 	•	Low temp = less hallucination.
         messages: [
           { role: "system", content: systemPrompt },
@@ -387,7 +387,7 @@ Return strict JSON with topic, difficulty, reason.
 `.trim();
 
   return responsesClient.openAiClientJsonResponse({
-    model: "gpt-4.1-mini",
+    model: "gpt-5",
     temperature: 0.3, // Topic selection should be stable policy, not random creativity.
     messages: [
       { role: "system", content: systemPrompt },
@@ -456,7 +456,7 @@ Output STRICTLY as JSON following this schema:
 
   const result =
     await responsesClient.openAiClientJsonResponse<StudyPlanResponse>({
-      model: "gpt-4.1-mini",
+      model: "gpt-5",
       temperature: 0.4,
       messages: [
         { role: "system", content: systemPrompt },

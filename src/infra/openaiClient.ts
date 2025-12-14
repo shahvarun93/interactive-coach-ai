@@ -9,6 +9,8 @@ if the JSON isn’t exactly what we expect,
 we reject it early with a clear error rather than letting bugs leak through the app.
 */
 import { z } from "zod";
+import { ChatCompletionResult, ChatMessage } from "../interfaces/Chat";
+import { Stream } from "openai/streaming";
 
 const AI_LOG_DEBUG = process.env.AI_LOG_DEBUG === "1";
 
@@ -68,7 +70,7 @@ async function timeOpenAiCall<T>(
 }
 
 export type Message = {
-  role: "system" | "user";
+  role: "system" | "user" | "assistant";
   content: string;
 };
 
@@ -79,14 +81,11 @@ const client = new OpenAI({
 function toResponseInput(messages: Message[]): ResponseCreateParams["input"] {
   return messages.map((message) => ({
     role: message.role,
-    content: [
-      {
-        type: "input_text",
-        text: message.content,
-      },
-    ],
+    content: message.content,
   })) as ResponseCreateParams["input"];
 }
+
+type AnyChatRole = "system" | "user" | "assistant";
 
 /*
 This function walks the output:
@@ -177,6 +176,77 @@ async function openAiClientTextResponse({
   return extractText(response);
 }
 
+async function openAiClientCreateChatCompletion<T>(params: {
+  model: string;
+  messages: ChatMessage[];
+  maxTokens: number;
+  responseFormat?: any;
+}): Promise<ChatCompletionResult> {
+  const response = await timeOpenAiCall("json_response", params.model, () =>
+    client.chat.completions.create({
+      model: params.model,
+      messages: params.messages,
+      max_completion_tokens: params.maxTokens,
+      response_format: params.responseFormat,
+    })
+  );
+
+  return {
+    text: response.choices?.[0]?.message?.content ?? "",
+    usage: {
+      promptTokens: response.usage?.prompt_tokens ?? null,
+      completionTokens: response.usage?.completion_tokens ?? null,
+    },
+    raw: response,
+  };
+}
+
+async function* openAiClientChatCompletionStream(params: {
+  model: string;
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+  maxTokens: number;
+}): AsyncGenerator<string, void, void> {
+  const stream = await timeOpenAiCall("json_response", params.model, () =>
+    client.responses.create({
+      model: params.model,
+      input: params.messages.map((m) => ({ role: m.role, content: m.content })), // ✅ string content
+      max_output_tokens: params.maxTokens,
+      stream: true,
+    }));
+  let yielded = false;
+
+  for await (const event of stream as Stream<OpenAI.Responses.ResponseStreamEvent>) {
+    // TEMP: keep this until stable
+    // console.log("[stream event]", event?.type);
+
+    if (
+      event?.type === "response.output_text.delta" &&
+      typeof event.delta === "string" &&
+      event.delta.length
+    ) {
+      yielded = true;
+      yield event.delta;
+      continue;
+    }
+
+    if (
+      !yielded &&
+      event?.type === "response.output_text.done" &&
+      typeof event.text === "string" &&
+      event.text.length
+    ) {
+      // Some implementations might only send done text
+      yielded = true;
+      yield event.text;
+      continue;
+    }
+
+    if (event.type === "error") {
+      throw new Error(event.message || "Stream error");
+    }
+  }
+}
+
 export async function createEmbeddingForText(input: string): Promise<number[]> {
   if (!input.trim()) {
     throw new Error("Cannot create embedding for empty text");
@@ -214,4 +284,6 @@ export async function embedText(text: string): Promise<number[]> {
 export const responsesClient = {
   openAiClientJsonResponse: openAiClientJsonResponse,
   openAiClientTextResponse: openAiClientTextResponse,
+  openAiClientChatCompletionJsonResponse: openAiClientCreateChatCompletion,
+  openAiClientChatCompletionStream: openAiClientChatCompletionStream,
 };

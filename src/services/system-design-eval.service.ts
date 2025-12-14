@@ -47,7 +47,7 @@ ${answer}
   `.trim();
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4.1-mini',   // adjust if you want a different model
+    model: 'gpt-5',   // adjust if you want a different model
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userContent },

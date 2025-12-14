@@ -3,7 +3,6 @@ import { Router } from "express";
 import * as systemDesignService from "../services/system-design.service";
 import * as usersDao from "../dao/users.dao";
 import { findUserByEmail } from "../services/users.service";
-import { OpenAiQuotaError } from "../infra/openaiClient"; // adjust path if needed
 import * as systemDesignGraph from "../agents/system-design-langgraph";
 import * as systemDesignCoachGraph from "../agents/sd-coach-graph";
 
@@ -289,6 +288,42 @@ router.post("/next-question", async (req, res) => {
     return res.status(500).json({
       error: "Failed to generate next question.",
       details: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+  }
+});
+
+router.post("/api/v1/sessions/:sessionId/runs", async (req, res) => {
+  const t0 = Date.now();
+  const { sessionId } = req.params;
+
+  const {
+    globalSystemPrompt,
+    modeSystemPrompt,
+    userPrompt,
+    temperature,
+    maxOutputTokens,
+    persistMessages = true,
+    includeTranscriptInContext = true,
+    contextMessageLimit = 20,
+  } = req.body || {};
+
+  if (!userPrompt || typeof userPrompt !== "string" || !userPrompt.trim()) {
+    return res.status(400).json({
+      error: { code: "INVALID_REQUEST", message: "userPrompt is required." },
+    });
+  }
+
+  let session;
+  try {
+    session = await systemDesignService.getSessionById(sessionId);
+    if (!session) {
+      return res.status(404).json({
+        error: { code: "INVALID_REQUEST", message: "Session not found." },
+      });
+    }
+  } catch (e) {
+    return res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Failed to load session." },
     });
   }
 });
