@@ -85,8 +85,6 @@ function toResponseInput(messages: Message[]): ResponseCreateParams["input"] {
   })) as ResponseCreateParams["input"];
 }
 
-type AnyChatRole = "system" | "user" | "assistant";
-
 /*
 This function walks the output:
 	•	finds the first output_text
@@ -182,20 +180,21 @@ async function openAiClientCreateChatCompletion<T>(params: {
   maxTokens: number;
   responseFormat?: any;
 }): Promise<ChatCompletionResult> {
-  const response = await timeOpenAiCall("json_response", params.model, () =>
+  const response = await timeOpenAiCall("chat_completion", params.model, () =>
     client.chat.completions.create({
       model: params.model,
       messages: params.messages,
       max_completion_tokens: params.maxTokens,
-      response_format: params.responseFormat,
+      ...(params.responseFormat ? { response_format: params.responseFormat} : {})
     })
   );
 
   return {
     text: response.choices?.[0]?.message?.content ?? "",
+    finishReason: response.choices?.[0]?.finish_reason ?? null,
     usage: {
       promptTokens: response.usage?.prompt_tokens ?? null,
-      completionTokens: response.usage?.completion_tokens ?? null,
+      completionTokens: response.usage?.completion_tokens ?? null
     },
     raw: response,
   };
@@ -206,45 +205,19 @@ async function* openAiClientChatCompletionStream(params: {
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
   maxTokens: number;
 }): AsyncGenerator<string, void, void> {
-  const stream = await timeOpenAiCall("json_response", params.model, () =>
-    client.responses.create({
+  const stream = await timeOpenAiCall("chat_completion_stream", params.model, () =>
+    client.chat.completions.create({
       model: params.model,
-      input: params.messages.map((m) => ({ role: m.role, content: m.content })), // ✅ string content
-      max_output_tokens: params.maxTokens,
+      messages: params.messages,
+      max_completion_tokens: params.maxTokens,
       stream: true,
     }));
-  let yielded = false;
-
-  for await (const event of stream as Stream<OpenAI.Responses.ResponseStreamEvent>) {
-    // TEMP: keep this until stable
-    // console.log("[stream event]", event?.type);
-
-    if (
-      event?.type === "response.output_text.delta" &&
-      typeof event.delta === "string" &&
-      event.delta.length
-    ) {
-      yielded = true;
-      yield event.delta;
-      continue;
+    for await (const chunk of stream) {
+      const delta = chunk.choices?.[0]?.delta?.content;
+      if (typeof delta === 'string' && delta.length) {
+        yield delta;
+      }
     }
-
-    if (
-      !yielded &&
-      event?.type === "response.output_text.done" &&
-      typeof event.text === "string" &&
-      event.text.length
-    ) {
-      // Some implementations might only send done text
-      yielded = true;
-      yield event.text;
-      continue;
-    }
-
-    if (event.type === "error") {
-      throw new Error(event.message || "Stream error");
-    }
-  }
 }
 
 export async function createEmbeddingForText(input: string): Promise<number[]> {

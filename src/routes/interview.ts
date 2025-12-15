@@ -40,8 +40,15 @@ router.post("/sessions/:sessionId/runs/stream", async (req, res) => {
   const { sessionId } = req.params;
   const dto = req.body;
 
-  if (!dto?.userPrompt?.trim()) {
-    return res.status(400).json({ error: "userPrompt is required." });
+  const messages = Array.isArray(dto?.messages) ? dto.messages : null;
+  const last = messages && messages.length ? messages[messages.length - 1] : null;
+
+  if (!messages || !messages.length) {
+    return res.status(400).json({ error: "messages[] is required." });
+  }
+
+  if (!last || last.role !== "user" || typeof last.content !== "string" || !last.content.trim()) {
+    return res.status(400).json({ error: "Last message must be a non-empty user message." });
   }
 
   res.setHeader("Content-Type", "text/event-stream");
@@ -87,8 +94,15 @@ router.post("/sessions/:sessionId/runs", async (req, res) => {
     const { sessionId } = req.params;
     const dto = req.body;
 
-    if (!dto?.userPrompt?.trim()) {
-      return res.status(400).json({ error: "userPrompt is required." });
+    const messages = Array.isArray(dto?.messages) ? dto.messages : null;
+    const last = messages && messages.length ? messages[messages.length - 1] : null;
+
+    if (!messages || !messages.length) {
+      return res.status(400).json({ error: "messages[] is required." });
+    }
+
+    if (!last || last.role !== "user" || typeof last.content !== "string" || !last.content.trim()) {
+      return res.status(400).json({ error: "Last message must be a non-empty user message." });
     }
 
     const result = await orchestrator.runTurn({ sessionId, dto });

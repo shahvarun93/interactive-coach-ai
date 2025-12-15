@@ -53,11 +53,15 @@ export async function listRecentTranscript(
   const res = await query(
     `
     SELECT id, session_id, role, content, metadata_json
-    FROM messages
-    WHERE session_id = $1
-      AND role IN ('user', 'assistant')
-    ORDER BY created_at DESC
-    LIMIT $2
+    FROM (
+      SELECT id, session_id, role, content, metadata_json, created_at
+      FROM messages
+      WHERE session_id = $1
+        AND role IN ('user', 'assistant')
+      ORDER BY created_at DESC
+      LIMIT $2
+    ) t
+    ORDER BY created_at ASC
     `,
     [sessionId, limit]
   );
@@ -103,7 +107,7 @@ export async function insertRun(args: {
 
 export async function updateRunResult(args: {
   runId: string;
-  status: "ok" | "error";
+  status: "success" | "error";
   responseText?: string;
   responseJson?: string | null;
   tokenInput?: number | null;
@@ -111,6 +115,7 @@ export async function updateRunResult(args: {
   latencyMs: number;
   errorCode?: string;
   errorMessage?: string;
+  finishReason?: string | null;
 }): Promise<void> {
   await query(
     `
@@ -122,7 +127,8 @@ export async function updateRunResult(args: {
         token_output = $6,
         latency_ms = $7,
         error_code = $8,
-        error_message = $9
+        error_message = $9,
+        finish_reason = $10
     WHERE id = $1
     `,
     [
@@ -135,6 +141,7 @@ export async function updateRunResult(args: {
       args.latencyMs,
       args.errorCode ?? null,
       args.errorMessage ?? null,
+      args.finishReason ?? null,
     ]
   );
 }
@@ -198,7 +205,7 @@ export async function insertScore(args: {
 export async function getLatestSessionSummary(sessionId: string) {
   const r = await query(
     `select id, session_id, summary_text, last_message_id, created_at
-     from interview_session_summaries_tbl
+     from summaries
      where session_id = $1
      order by created_at desc
      limit 1`,
@@ -210,10 +217,10 @@ export async function getLatestSessionSummary(sessionId: string) {
 export async function insertSessionSummary(params: {
   sessionId: string;
   summaryText: string;
-  lastMessageId: number | null;
+  lastMessageId: string | null;
 }) {
   const r = await query(
-    `insert into interview_session_summaries_tbl (session_id, summary_text, last_message_id)
+    `insert into summaries (session_id, summary_text, last_message_id)
      values ($1, $2, $3)
      returning id`,
     [params.sessionId, params.summaryText, params.lastMessageId]
@@ -224,26 +231,44 @@ export async function insertSessionSummary(params: {
 // Count messages to decide if we should summarize (cheap)
 export async function countMessages(sessionId: string) {
   const r = await query(
-    `select count(*)::int as c from interview_messages_tbl where session_id = $1`,
+    `select count(*)::int as c from messages where session_id = $1`,
     [sessionId]
   );
   return r.rows[0]?.c ?? 0;
 }
 
-// Fetch “older slice” to summarize (messages after last summary up to a cap)
 export async function listMessagesForSummarization(params: {
   sessionId: string;
-  afterMessageId: number | null;
-  limit: number; // e.g., 30-60
+  afterMessageId: string | null;
+  limit: number;
 }) {
   const r = await query(
-    `select id, role, content, created_at
-     from interview_messages_tbl
-     where session_id = $1
-       and ($2::bigint is null or id > $2::bigint)
-     order by id asc
-     limit $3`,
+    `
+    SELECT id, role, content, created_at
+    FROM messages
+    WHERE session_id = $1
+      AND ($2::uuid IS NULL OR id > $2::uuid)
+    ORDER BY created_at ASC
+    LIMIT $3
+    `,
     [params.sessionId, params.afterMessageId, params.limit]
   );
-  return r.rows as Array<{ id: number; role: string; content: string }>;
+
+  return r.rows as Array<{ id: string; role: string; content: string }>;
+}
+
+export async function getInitialSystemPrompt(sessionId: string): Promise<string | null> {
+  const r = await query(
+    `
+    SELECT global_system_prompt
+    FROM runs
+    WHERE session_id = $1
+    ORDER BY created_at ASC
+    LIMIT 1
+    `,
+    [sessionId]
+  );
+
+  const v = r.rows?.[0]?.global_system_prompt;
+  return typeof v === "string" && v.trim().length ? v.trim() : null;
 }

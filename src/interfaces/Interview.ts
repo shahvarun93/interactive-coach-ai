@@ -22,32 +22,24 @@ export interface MessageRecord {
 }
 
 export interface RunRequestDto {
-  globalSystemPrompt?: string;
-  modeSystemPrompt?: string;
-  userPrompt: string;
+  messages: Array<{
+    role: "system" | "user" | "assistant";
+    content: string;
+  }>;
   persistMessages?: boolean;
-  includeTranscriptInContext?: boolean;
+  includeTranscript?: boolean;
   contextMessageLimit?: number;
-  enableSummarization: boolean;
-  summarizationTriggerCount: number;
+  enableSummarization?: boolean;
+  summarizationTriggerCount?: number;
+  maxOutputTokens?: number;
 }
 
 export interface RunResultDto {
   runId: string;
   assistantText: string;
-  score: ScorePayload;
   usage: {
     tokenInput: number | null;
     tokenOutput: number | null;
     latencyMs: number;
   };
-}
-
-export interface ScorePayload {
-  total: number;
-  rubric: Record<string, unknown>;
-  strengths: string[];
-  weaknesses: string[];
-  actions: string[];
-  followups?: string[];
 }

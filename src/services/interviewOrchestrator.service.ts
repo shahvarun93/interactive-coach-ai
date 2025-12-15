@@ -1,4 +1,5 @@
 import { RunRequestDto, RunResultDto } from "../interfaces/Interview";
+import type { ChatMessage } from "../interfaces/Chat";
 import * as interviewDao from "../dao/interview.dao";
 import * as promptBuilder from "./interviewPromptBuilder-ai.service";
 import * as summarizerAi from "./interviewSummarizer-ai.service";
@@ -28,57 +29,91 @@ export async function streamTurn({
   finalize: (fullText: string) => Promise<{
     runId: string;
     assistantText: string;
-    score: any;
     latencyMs: number;
   }>;
 }> {
   const startMs = Date.now();
 
   const persistMessages = dto.persistMessages !== false;
-  const includeTranscript = dto.includeTranscriptInContext !== false;
-  const contextLimit = promptBuilder.resolveContextLimit(
-    dto.contextMessageLimit
-  );
+  const includeTranscript = dto.includeTranscript !== false;
 
   const session = await interviewDao.getSessionById(sessionId);
   if (!session) throw new Error("Session not found");
+
+  const contextLimit = Math.min(
+    60,
+    Math.max(0, Number(dto.contextMessageLimit ?? 20))
+  );
 
   const transcript = includeTranscript
     ? await interviewDao.listRecentTranscript(sessionId, contextLimit)
     : [];
 
-  const enableSummarization = dto.enableSummarization !== false;
   const triggerCount = Number(dto.summarizationTriggerCount ?? 24);
 
-  const latestSummary = enableSummarization
-    ? await interviewDao.getLatestSessionSummary(sessionId)
+  const latestSummary = await interviewDao.getLatestSessionSummary(sessionId);
+
+  const toChat = (m: any): ChatMessage => ({
+    role: m.role as "system" | "user" | "assistant",
+    content: String(m.content ?? ""),
+  });
+
+  const baseMessages: ChatMessage[] = Array.isArray(dto.messages)
+    ? dto.messages.map(toChat)
+    : [];
+  const lastUser = baseMessages.length
+    ? baseMessages[baseMessages.length - 1]
     : null;
+  const userText =
+    lastUser && lastUser.role === "user" && typeof lastUser.content === "string"
+      ? lastUser.content.trim()
+      : "";
 
-  const messages = promptBuilder.buildContextMessages({
-    globalSystemPrompt: dto.globalSystemPrompt,
-    modeSystemPrompt: dto.modeSystemPrompt,
-    mode: session.modeId,
-    persona: session.persona,
-    seniority: session.seniority,
-    transcript,
-    userPrompt: dto.userPrompt,
-    sessionSummary: latestSummary?.summary_text,
-  });
+  const nonSystemMsgs = baseMessages.filter((m) => m.role !== "system");
 
-  const maxOutputTokensRaw = promptBuilder.computeMaxOutputTokens({
-    modeId: session.modeId,
-    messages,
-    model: process.env.OPENAI_MODEL || "gpt-5",
-  });
+  const requestedSystem =
+    baseMessages
+      .filter((m) => m.role === "system")
+      .map((m) => String(m.content ?? "").trim())
+      .find((s) => s.length) ?? "";
 
-  // Safe floor to avoid empty visible output for reasoning models.
-  const maxOutputTokens = Math.max(maxOutputTokensRaw, 800);
+  const initialSystem = await interviewDao.getInitialSystemPrompt(sessionId);
+  const effectiveSystem = initialSystem ? initialSystem : requestedSystem;
+
+  const systemMsgs: ChatMessage[] = effectiveSystem
+    ? [{ role: "system", content: effectiveSystem }]
+    : [];
+
+  const transcriptMsgs: ChatMessage[] = includeTranscript
+    ? transcript.map(toChat)
+    : [];
+
+  const summaryMsg: ChatMessage[] = latestSummary?.summary_text
+    ? [
+        {
+          role: "system",
+          content: `Session summary:\n${latestSummary.summary_text}`,
+        },
+      ]
+    : [];
+
+  const messages: ChatMessage[] = [
+    ...summaryMsg,
+    ...systemMsgs,
+    ...transcriptMsgs,
+    ...nonSystemMsgs,
+  ];
+
+  const maxOutputTokens = Math.min(
+    8192,
+    Math.max(256, Number(dto.maxOutputTokens ?? 2048))
+  );
 
   const runId = await interviewDao.insertRun({
     sessionId,
-    globalSystemPrompt: (dto.globalSystemPrompt || "").trim(),
-    modeSystemPrompt: (dto.modeSystemPrompt || "").trim(),
-    userPrompt: dto.userPrompt.trim(),
+    globalSystemPrompt: (effectiveSystem || "").trim(),
+    modeSystemPrompt: "",
+    userPrompt: userText,
     maxOutputTokens,
     requestJson: JSON.stringify({ messages }),
   });
@@ -87,7 +122,7 @@ export async function streamTurn({
     await interviewDao.insertMessage({
       sessionId,
       role: "user",
-      content: dto.userPrompt.trim(),
+      content: userText,
     });
   }
 
@@ -101,9 +136,20 @@ export async function streamTurn({
 
     const latencyMs = Date.now() - startMs;
 
+    if (!finalText.trim()) {
+      await interviewDao.updateRunResult({
+        runId,
+        status: "error",
+        latencyMs,
+        errorCode: "EMPTY_MODEL_OUTPUT",
+        errorMessage: "Empty assistant text returned by model.",
+      });
+      throw new Error("Empty assistant text returned by model.");
+    }
+
     await interviewDao.updateRunResult({
       runId,
-      status: "ok",
+      status: "success",
       responseText: finalText,
       responseJson: null,
       tokenInput: null,
@@ -119,41 +165,14 @@ export async function streamTurn({
         metadataJson: JSON.stringify({ runId }),
       });
 
-      if (enableSummarization) {
-        await maybeUpdateSessionSummary({
-          sessionId,
-          triggerCount,
-          sliceLimit: 40,
-        });
-      }
-    }
-
-    // IMPORTANT: Consider skipping scoring when finalText is empty to avoid extra calls.
-    const scorePayload = finalText.trim()
-      ? await scoreTurn(session.modeId, dto.userPrompt.trim(), finalText)
-      : {
-          total: 0,
-          rubric: {},
-          strengths: [],
-          weaknesses: ["Assistant response was empty (no stream deltas)."],
-          actions: ["Fix upstream streaming to emit deltas."],
-          followups: [],
-        };
-
-    if (finalText.trim()) {
-      await interviewDao.insertScore({
+      await updateSessionSummary({
         sessionId,
-        runId,
-        totalScore: scorePayload.total,
-        rubricJson: JSON.stringify(scorePayload.rubric),
-        strengthsJson: JSON.stringify(scorePayload.strengths),
-        weaknessesJson: JSON.stringify(scorePayload.weaknesses),
-        actionsJson: JSON.stringify(scorePayload.actions),
-        followupsJson: JSON.stringify(scorePayload.followups ?? []),
+        triggerCount,
+        sliceLimit: 40,
       });
     }
 
-    return { runId, assistantText: finalText, score: scorePayload, latencyMs };
+    return { runId, assistantText: finalText, latencyMs };
   };
 
   return { runId, stream, finalize };
@@ -169,48 +188,84 @@ export async function runTurn({
   const startMs = Date.now();
 
   const persistMessages = dto.persistMessages !== false;
-  const includeTranscript = dto.includeTranscriptInContext !== false;
-  const contextLimit = promptBuilder.resolveContextLimit(
-    dto.contextMessageLimit
-  );
+  const includeTranscript = dto.includeTranscript !== false;
+
   const session = await interviewDao.getSessionById(sessionId);
   if (!session) throw new Error("Session not found");
+
+  const contextLimit = Math.min(
+    60,
+    Math.max(0, Number(dto.contextMessageLimit ?? 20))
+  );
 
   const transcript = includeTranscript
     ? await interviewDao.listRecentTranscript(sessionId, contextLimit)
     : [];
-  const enableSummarization = dto.enableSummarization !== false;
   const triggerCount = Number(dto.summarizationTriggerCount ?? 24);
 
-  const latestSummary = enableSummarization
-    ? await interviewDao.getLatestSessionSummary(sessionId)
+  const latestSummary = await interviewDao.getLatestSessionSummary(sessionId);
+
+  const toChat = (m: any): ChatMessage => ({
+    role: m.role as "system" | "user" | "assistant",
+    content: String(m.content ?? ""),
+  });
+
+  const baseMessages: ChatMessage[] = Array.isArray(dto.messages)
+    ? dto.messages.map(toChat)
+    : [];
+  const lastUser = baseMessages.length
+    ? baseMessages[baseMessages.length - 1]
     : null;
+  const userText =
+    lastUser && lastUser.role === "user" && typeof lastUser.content === "string"
+      ? lastUser.content.trim()
+      : "";
 
-  const messages = promptBuilder.buildContextMessages({
-    globalSystemPrompt: dto.globalSystemPrompt,
-    modeSystemPrompt: dto.modeSystemPrompt,
-    mode: session.modeId,
-    persona: session.persona,
-    seniority: session.seniority,
-    transcript,
-    userPrompt: dto.userPrompt,
-    sessionSummary: latestSummary?.summary_text,
-  });
+  const nonSystemMsgs = baseMessages.filter((m) => m.role !== "system");
 
-  const maxOutputTokensRaw = promptBuilder.computeMaxOutputTokens({
-    modeId: session.modeId,
-    messages,
-    model: process.env.OPENAI_MODEL || "gpt-5",
-  });
+  const requestedSystem =
+    baseMessages
+      .filter((m) => m.role === "system")
+      .map((m) => String(m.content ?? "").trim())
+      .find((s) => s.length) ?? "";
 
-  // Safe floor to avoid empty visible output for reasoning models.
-  const maxOutputTokens = Math.max(maxOutputTokensRaw, 800);
+  const initialSystem = await interviewDao.getInitialSystemPrompt(sessionId);
+  const effectiveSystem = initialSystem ? initialSystem : requestedSystem;
+
+  const systemMsgs: ChatMessage[] = effectiveSystem
+    ? [{ role: "system", content: effectiveSystem }]
+    : [];
+
+  const transcriptMsgs: ChatMessage[] = includeTranscript
+    ? transcript.map(toChat)
+    : [];
+
+  const summaryMsg: ChatMessage[] = latestSummary?.summary_text
+    ? [
+        {
+          role: "system",
+          content: `Session summary:\n${latestSummary.summary_text}`,
+        },
+      ]
+    : [];
+
+  const messages: ChatMessage[] = [
+    ...summaryMsg,
+    ...systemMsgs,
+    ...transcriptMsgs,
+    ...nonSystemMsgs,
+  ];
+
+  const maxOutputTokens = Math.min(
+    8192,
+    Math.max(256, Number(dto.maxOutputTokens ?? 2048))
+  );
 
   const runId = await interviewDao.insertRun({
     sessionId,
-    globalSystemPrompt: (dto.globalSystemPrompt || "").trim(),
-    modeSystemPrompt: (dto.modeSystemPrompt || "").trim(),
-    userPrompt: dto.userPrompt.trim(),
+    globalSystemPrompt: (effectiveSystem || "").trim(),
+    modeSystemPrompt: "",
+    userPrompt: userText,
     maxOutputTokens,
     requestJson: JSON.stringify({ messages }),
   });
@@ -219,7 +274,7 @@ export async function runTurn({
     await interviewDao.insertMessage({
       sessionId,
       role: "user",
-      content: dto.userPrompt.trim(),
+      content: userText,
     });
   }
 
@@ -230,16 +285,33 @@ export async function runTurn({
     });
 
     const assistantText: string = completion?.text ?? "";
+
+    if (!assistantText.trim()) {
+      const latencyMs = Date.now() - startMs;
+
+      await interviewDao.updateRunResult({
+        runId,
+        status: "error",
+        latencyMs,
+        errorCode: "EMPTY_MODEL_OUTPUT",
+        errorMessage: "Empty assistant text returned by model.",
+        finishReason: completion?.finishReason ?? null,
+      });
+
+      throw new Error("Empty assistant text returned by model.");
+    }
+
     const latencyMs = Date.now() - startMs;
 
     await interviewDao.updateRunResult({
       runId,
-      status: "ok",
+      status: "success",
       responseText: assistantText,
       responseJson: JSON.stringify(completion?.raw ?? null),
       tokenInput: completion?.usage?.promptTokens ?? null,
       tokenOutput: completion?.usage?.completionTokens ?? null,
       latencyMs,
+      finishReason: completion?.finishReason ?? null,
     });
 
     if (persistMessages && assistantText.trim().length > 0) {
@@ -250,43 +322,16 @@ export async function runTurn({
         metadataJson: JSON.stringify({ runId }),
       });
 
-      if (enableSummarization) {
-        await maybeUpdateSessionSummary({
-          sessionId,
-          triggerCount,
-          sliceLimit: 40,
-        });
-      }
-    }
-
-    const scorePayload = assistantText.trim()
-      ? await scoreTurn(session.modeId, dto.userPrompt.trim(), assistantText)
-      : {
-          total: 0,
-          rubric: {},
-          strengths: [],
-          weaknesses: ["Assistant response was empty."],
-          actions: ["Increase maxOutputTokens or reduce prompt size."],
-          followups: [],
-        };
-
-    if (assistantText.trim()) {
-      await interviewDao.insertScore({
+      await updateSessionSummary({
         sessionId,
-        runId,
-        totalScore: scorePayload.total,
-        rubricJson: JSON.stringify(scorePayload.rubric),
-        strengthsJson: JSON.stringify(scorePayload.strengths),
-        weaknessesJson: JSON.stringify(scorePayload.weaknesses),
-        actionsJson: JSON.stringify(scorePayload.actions),
-        followupsJson: JSON.stringify(scorePayload.followups ?? []),
+        triggerCount,
+        sliceLimit: 40,
       });
     }
 
     const data = {
-      runId: runId,
-      assistantText: assistantText,
-      score: scorePayload,
+      runId,
+      assistantText,
       usage: {
         tokenInput: completion?.usage?.promptTokens ?? null,
         tokenOutput: completion?.usage?.completionTokens ?? null,
@@ -315,7 +360,7 @@ export async function runTurn({
   }
 }
 
-async function maybeUpdateSessionSummary(params: {
+async function updateSessionSummary(params: {
   sessionId: string;
   triggerCount: number;
   sliceLimit: number;
@@ -337,7 +382,10 @@ async function maybeUpdateSessionSummary(params: {
     priorSummary: latest?.summary_text ?? null,
     messages: slice
       .filter((m) => m.role === "user" || m.role === "assistant")
-      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
   });
 
   if (!summaryText) return;
@@ -347,94 +395,4 @@ async function maybeUpdateSessionSummary(params: {
     summaryText,
     lastMessageId: slice[slice.length - 1].id,
   });
-}
-
-async function scoreTurn(
-  modeId: "coding" | "system_design",
-  userPrompt: string,
-  assistantText: string
-) {
-  const scoreSystemPrompt = promptBuilder.getScoreSystemPrompt(modeId);
-  const scoringMessages = promptBuilder.buildScoringMessages({
-    scoreSystemPrompt,
-    userPrompt,
-    assistantText,
-  });
-
-  try {
-    const resp = await promptBuilder.generateScoreResponse({
-      messages: scoringMessages,
-    });
-
-    const parsed = tryParseJson(resp?.text ?? "");
-
-    if (parsed && typeof parsed.total_score === "number") {
-      return {
-        total: parsed.total_score,
-        rubric: parsed.rubric || {},
-        strengths: parsed.strengths || [],
-        weaknesses: parsed.weaknesses || [],
-        actions: parsed.actions || [],
-        followups: parsed.followups || [],
-      };
-    }
-
-    return {
-      total: 0,
-      rubric: {},
-      strengths: [],
-      weaknesses: ["Scoring output was invalid JSON."],
-      actions: ["Re-run scoring. Ensure JSON-only scoring prompt."],
-      followups: modeId === "coding" ? [] : [],
-    };
-  } catch (err) {
-    // Scoring failure should not break the interview turn; return a safe result.
-    return {
-      total: 0,
-      rubric: {},
-      strengths: [],
-      weaknesses: ["Scoring call failed."],
-      actions: ["Retry scoring."],
-      followups: modeId === "coding" ? [] : [],
-    };
-  }
-}
-
-function tryParseJson(text: string): any | null {
-  if (typeof text !== "string") return null;
-  const trimmed = text.trim();
-  if (!trimmed) return null;
-
-  // Direct parse first.
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    // fallthrough
-  }
-
-  // Strip ```json fences.
-  const unfenced = trimmed
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-
-  try {
-    return JSON.parse(unfenced);
-  } catch {
-    // fallthrough
-  }
-
-  // Last resort: parse first {...} block.
-  const start = unfenced.indexOf("{");
-  const end = unfenced.lastIndexOf("}");
-  if (start >= 0 && end > start) {
-    const slice = unfenced.slice(start, end + 1);
-    try {
-      return JSON.parse(slice);
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
 }
