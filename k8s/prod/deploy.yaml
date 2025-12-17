@@ -13,6 +13,7 @@ spec:
       labels:
         app: sd-copilot
     spec:
+      terminationGracePeriodSeconds: 40
       containers:
         - name: sd-copilot
           image: sd-copilot:placeholder   # still using Option A, we override via kubectl set image
@@ -26,15 +27,19 @@ spec:
               value: "production"
             - name: PORT
               value: "3000"
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 5"]
           readinessProbe:
             httpGet:
               path: /api/v1/health/ready
               port: 3000
             initialDelaySeconds: 15
-            periodSeconds: 20
+            periodSeconds: 120
           livenessProbe:
             httpGet:
               path: /api/v1/health/live
               port: 3000
             initialDelaySeconds: 15
-            periodSeconds: 20
+            periodSeconds: 120

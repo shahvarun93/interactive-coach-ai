@@ -3,6 +3,9 @@ kind: Service
 metadata:
   name: sd-copilot-service
   namespace: sd-copilot
+  annotations:
+    cloud.google.com/backend-config: '{"default":"sd-copilot-backendconfig"}'
+    cloud.google.com/neg: '{"ingress": true}'
 spec:
   selector:
     app: sd-copilot
@@ -11,3 +14,13 @@ spec:
       port: 80
       targetPort: 3000
   type: ClusterIP
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: sd-copilot-backendconfig
+  namespace: sd-copilot
+spec:
+  timeoutSec: 600
+  connectionDraining:
+    drainingTimeoutSec: 30

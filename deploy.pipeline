@@ -20,6 +20,7 @@ kubectl create secret generic sd-copilot-secrets \
 
 kubectl apply -f k8s/prod/deploy.yaml
 kubectl apply -f k8s/prod/service.yaml
+kubectl apply -f k8s/prod/ingress.yaml
 kubectl set image deployment/sd-copilot-deployment \
   sd-copilot="$FULL_IMAGE" \
   -n sd-copilot
