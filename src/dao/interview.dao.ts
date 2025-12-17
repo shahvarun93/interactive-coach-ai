@@ -1,12 +1,6 @@
 import { query } from "../db";
 import { SessionRecord, MessageRecord } from "../interfaces/Interview";
-
-export type SessionListItem = {
-  sessionId: string;
-  title: string | null;
-  updatedAt: string | null;
-  messageCount: number;
-};
+import { SessionListItem } from "../interfaces/SessionListItem";
 
 export async function getSessionById(
   sessionId: string
