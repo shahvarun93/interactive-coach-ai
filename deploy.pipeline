@@ -13,6 +13,11 @@ docker build -t sd-copilot:local . -f DOCKERFILE
 docker tag sd-copilot:local "$FULL_IMAGE"
 docker push "$FULL_IMAGE"
 
+kubectl delete secret sd-copilot-secrets -n sd-copilot 2>/dev/null || true
+kubectl create secret generic sd-copilot-secrets \
+  -n sd-copilot \
+  --from-env-file=.env
+
 kubectl apply -f k8s/prod/deploy.yaml
 kubectl apply -f k8s/prod/service.yaml
 kubectl set image deployment/sd-copilot-deployment \
