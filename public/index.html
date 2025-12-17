@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>System Design Co-Pilot</title>
+  <title>Interactive Coach</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link rel="stylesheet" href="css/styles.css" />
@@ -19,13 +19,14 @@
 
   <footer class="site-footer">
     <div class="container">
-      <p>&copy; 2025 System Design Co-Pilot.</p>
+      <p>&copy; 2025 Interactive Coach.</p>
     </div>
   </footer>
   <script src="components/header/header.component.js" defer></script>
   <script src="components/home/home.component.js" defer></script>
   <script src="components/system-design/system-design.component.js" defer></script>
   <script src="components/resume-assistant/resume-assistant.component.js" defer></script>
+  <script src="components/interview-chat-assistant/interview-chat-assistant.component.js" defer></script>
 
   <script>
     document.addEventListener('sd-coach-create', function (event) {
@@ -48,6 +49,13 @@
       parentComp.innerHTML = '';
       parentComp.appendChild(sdCoachComponent);
       document.getElementById('header').resetActiveLinkSelection('home');
+    });
+    document.addEventListener('interview-chat-assistant-create', function (event) {
+      const sdCoachComponent = document.createElement('interview-chat-assistant');
+      const parentComp = document.getElementById('component-container');
+      parentComp.innerHTML = '';
+      parentComp.appendChild(sdCoachComponent);
+      document.getElementById('header').resetActiveLinkSelection('interview-chat-assistant');
     });
   </script>
 </body>

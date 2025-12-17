@@ -49,6 +49,15 @@ class SdHeader extends HTMLElement {
           });
           this.dispatchEvent(event);
         });
+      this.shadowRoot
+        .querySelector("#interview-chat-assistant")
+        .addEventListener("click", () => {
+          const event = new CustomEvent("interview-chat-assistant-create", {
+            bubbles: true,
+            composed: true,
+          });
+          this.dispatchEvent(event);
+        });
     } catch (error) {
       console.error("Failed to load external HTML template:", error);
       this.shadowRoot.innerHTML = `<p>Error loading component template.</p>`;

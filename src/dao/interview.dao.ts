@@ -1,17 +1,28 @@
 import { query } from "../db";
-import {
-  SessionRecord,
-  MessageRecord,
-} from "../interfaces/Interview";
+import { SessionRecord, MessageRecord } from "../interfaces/Interview";
 
-/* ---------- Sessions ---------- */
+export type SessionListItem = {
+  sessionId: string;
+  title: string | null;
+  updatedAt: string | null;
+  messageCount: number;
+};
 
 export async function getSessionById(
   sessionId: string
 ): Promise<SessionRecord | null> {
   const res = await query(
     `
-    SELECT id, mode_id, persona, seniority, status
+    SELECT
+      id,
+      status,
+      created_at,
+      title,
+      updated_at,
+      system_prompt,
+      context_message_limit,
+      include_transcript,
+      persist_messages
     FROM sessions
     WHERE id = $1
     `,
@@ -22,22 +33,33 @@ export async function getSessionById(
 }
 
 export async function insertSession(args: {
-  modeId: "coding" | "system_design";
-  persona?: string;
-  seniority?: string;
   status?: string;
+  title?: string;
+  systemPrompt?: string | null;
+  contextMessageLimit?: number | null;
+  includeTranscript?: boolean | null;
+  persistMessages?: boolean | null;
 }): Promise<string> {
   const res = await query(
     `
-    INSERT INTO sessions (mode_id, persona, seniority, status)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO sessions (
+      status,
+      title,
+      system_prompt,
+      context_message_limit,
+      include_transcript,
+      persist_messages
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING id
     `,
     [
-      args.modeId,
-      args.persona ?? "realistic",
-      args.seniority ?? "senior",
       args.status ?? "active",
+      args.title ?? "Untitled",
+      args.systemPrompt ?? null,
+      args.contextMessageLimit ?? 20,
+      args.includeTranscript ?? true,
+      args.persistMessages ?? true,
     ]
   );
 
@@ -257,18 +279,66 @@ export async function listMessagesForSummarization(params: {
   return r.rows as Array<{ id: string; role: string; content: string }>;
 }
 
-export async function getInitialSystemPrompt(sessionId: string): Promise<string | null> {
-  const r = await query(
-    `
-    SELECT global_system_prompt
-    FROM runs
-    WHERE session_id = $1
-    ORDER BY created_at ASC
-    LIMIT 1
-    `,
-    [sessionId]
-  );
+export async function listSessions(params: {
+  limit?: number;
+  cursorUpdatedAt?: string | null; // ISO string
+  cursorId?: string | null; // uuid
+}): Promise<{
+  sessions: SessionListItem[];
+  nextCursor: { updatedAt: string; id: string } | null;
+}> {
+  const limit = Math.max(1, Math.min(100, Number(params.limit ?? 50)));
 
-  const v = r.rows?.[0]?.global_system_prompt;
-  return typeof v === "string" && v.trim().length ? v.trim() : null;
+  const sql = `
+    SELECT
+      s.id AS session_id,
+      s.title,
+      s.updated_at,
+      COALESCE(m.message_count, 0) AS message_count
+    FROM sessions s
+    LEFT JOIN (
+      SELECT session_id, COUNT(*)::int AS message_count
+      FROM messages
+      GROUP BY session_id
+    ) m ON m.session_id = s.id
+    WHERE
+      ($2::timestamptz IS NULL OR $3::uuid IS NULL)
+      OR (s.updated_at, s.id) < ($2::timestamptz, $3::uuid)
+    ORDER BY s.updated_at DESC, s.id DESC
+    LIMIT $1;
+  `;
+
+  const res = await query(sql, [
+    limit,
+    params.cursorUpdatedAt ?? null,
+    params.cursorId ?? null,
+  ]);
+
+  const sessions: SessionListItem[] = (res.rows ?? []).map((r: any) => ({
+    sessionId: String(r.session_id),
+    title: typeof r.title === "string" ? r.title : null,
+    updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : null,
+    messageCount: Number(r.message_count ?? 0),
+  }));
+
+  const last = sessions[sessions.length - 1];
+  const nextCursor =
+    last && last.updatedAt
+      ? { updatedAt: last.updatedAt, id: last.sessionId }
+      : null;
+
+  return { sessions, nextCursor };
+}
+
+export async function deleteSession(
+  sessionId: string
+): Promise<{ deleted: boolean }> {
+  const sql = `
+    DELETE FROM sessions
+    WHERE id = $1
+    RETURNING id;
+  `;
+
+  const res = await query(sql, [sessionId]);
+  return { deleted: (res.rows?.length ?? 0) > 0 };
 }

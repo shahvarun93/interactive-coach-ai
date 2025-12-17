@@ -1,15 +1,17 @@
 export type InterviewMode = "coding" | "system_design";
-export type InterviewPersona = "friendly" | "realistic" | "harsh";
-export type Seniority = "mid" | "senior" | "staff";
 
 export type ChatRole = "system" | "user" | "assistant" | "tool";
 
 export interface SessionRecord {
   id: string;
-  modeId: InterviewMode;
-  persona: InterviewPersona;
-  seniority: Seniority;
   status: "active" | "completed" | "archived";
+  context_message_limit: number;
+  system_prompt: string;
+  persist_messages: boolean;
+  include_transcript: boolean;
+  created_at: string;
+  title: string;
+  updated_at: string;
 }
 
 export interface MessageRecord {

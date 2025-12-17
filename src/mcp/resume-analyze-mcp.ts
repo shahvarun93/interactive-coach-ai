@@ -16,7 +16,7 @@ const ResumeAnalyzeInput = z.object({
     .string()
     .optional()
     .describe(
-      "Optional email to associate with a System Design Co-Pilot user."
+      "Optional email to associate with a Interactive Coach user."
     ),
   targetRole: z
     .string()

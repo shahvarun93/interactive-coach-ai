@@ -1,0 +1,504 @@
+<link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+<link rel="stylesheet" href="../../css/styles.css" />
+
+<style>
+  :host {
+    display: block;
+  }
+
+  main.container {
+    padding: 36px 16px 60px;
+  }
+
+  .page {
+    min-height: calc(100vh - 160px);
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 18px;
+    align-items: start;
+    margin-top: 26px;
+  }
+
+  .leftStack {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  @media (max-width: 980px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .panel-title {
+    margin-bottom: 10px;
+  }
+
+  .field {
+    margin-bottom: 12px;
+  }
+
+  .label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  .hint {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-top: 6px;
+  }
+
+  textarea,
+  input[type="number"],
+  input[type="text"],
+  select {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font: inherit;
+    background: rgba(255, 255, 255, 0.95);
+    outline: none;
+  }
+
+  textarea:focus,
+  input[type="number"]:focus,
+  input[type="text"]:focus,
+  select:focus {
+    border-color: rgba(59, 130, 246, 0.6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  #systemPrompt {
+    min-height: 210px;
+  }
+
+  .row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .row > * {
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+
+  .row button,
+  .row .btn {
+    flex: 0 0 auto;
+    min-width: 140px;
+  }
+
+  .toggles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  @media (max-width: 980px) {
+    .toggles {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.92);
+  }
+
+  .toggle span {
+    font-size: 0.9rem;
+    color: var(--text-main);
+    font-weight: 600;
+  }
+
+  .toggle input {
+    transform: scale(1.1);
+  }
+
+  .statusPill {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.85);
+    color: var(--text-muted);
+    user-select: none;
+  }
+
+  .statusPill.loading {
+    color: #92400e;
+    border-color: rgba(251, 191, 36, 0.45);
+  }
+  .statusPill.error {
+    color: #991b1b;
+    border-color: rgba(239, 68, 68, 0.45);
+  }
+  .statusPill.success {
+    color: #166534;
+    border-color: rgba(34, 197, 94, 0.45);
+  }
+
+  /* ChatGPT-like right panel */
+  .chatShell {
+    height: 640px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    background: rgba(245, 247, 251, 0.65);
+  }
+
+  @media (max-width: 980px) {
+    .chatShell {
+      height: 560px;
+    }
+  }
+
+  .chatArea {
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 14px;
+  }
+
+  .emptyState {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    padding: 8px 2px;
+  }
+
+  .msg {
+    margin: 12px 0;
+  }
+
+  .msg .meta {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .bubble {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.95);
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.35;
+  }
+
+  .bubble.assistant {
+    background: rgba(238, 242, 255, 0.85);
+  }
+
+  /* ChatGPT-style composer */
+  .composerBar {
+    flex: 0 0 auto;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.92);
+    border-top: 1px solid var(--border);
+  }
+
+  .composerRow {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  #userPrompt {
+    min-height: 46px;
+    max-height: 180px;
+    resize: none;
+    border-radius: 16px;
+    padding: 12px 12px;
+  }
+
+  .iconBtn {
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.8);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .iconBtn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .iconBtn.primary {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.35);
+  }
+
+  .icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  .actions .btn {
+    flex: none;
+    min-width: 160px;
+  }
+
+  .btn-ghost {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+  }
+  .sessionsList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+    max-height: 260px;
+    overflow: auto;
+    padding-right: 4px;
+  }
+
+  .sessionsList::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .sessionsList::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.45);
+    border-radius: 999px;
+    border: 3px solid rgba(255, 255, 255, 0.0);
+    background-clip: padding-box;
+  }
+
+  .sessionItem {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px;
+    background: rgba(255,255,255,0.92);
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  .sessionMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .sessionTitle {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sessionSub {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+
+  .sessionActions {
+    display: flex;
+    gap: 8px;
+    flex: none;
+  }
+
+  .sessionDelBtn {
+    border: 1px solid rgba(239,68,68,0.35);
+    background: rgba(239,68,68,0.08);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .sessionResumeBtn {
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .sessionsEmpty {
+    border: 1px dashed rgba(148, 163, 184, 0.8);
+    border-radius: 12px;
+    padding: 10px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.7);
+  }
+</style>
+
+<main class="container page">
+  <section class="hero" style="padding: 30px 0 10px;">
+    <h2 class="hero-heading">Interview Chat Assistant</h2>
+    <p class="hero-subtext">Configure your agent behavior and chat via your Interview API.</p>
+  </section>
+
+  <section class="card upload-card">
+    <div class="card">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <h3 class="card-title panel-title">Configuration</h3>
+        <span id="statusPill" class="statusPill" style="display:none;"></span>
+      </div>
+
+      <!-- <div class="field">
+        <label class="label" for="modeId">Mode</label>
+        <select id="modeId">
+          <option value="system_design">System Design</option>
+          <option value="coding">Coding</option>
+          <option value="custom">Custom</option>
+        </select>
+        <div class="hint">Locked after session starts. Use “New Session” to change mode.</div>
+      </div> -->
+
+      <div class="field">
+        <label class="label" for="systemPrompt">System Prompt</label>
+        <textarea
+          id="systemPrompt"
+          placeholder="Describe how the agent should behave (tone, constraints, format, rubric, etc.)"
+        ></textarea>
+        <div class="hint">Locked after session starts. Use “New Session” to change it.</div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label class="label" for="contextMessageLimit">contextMessageLimit</label>
+          <input id="contextMessageLimit" type="number" min="0" max="60" value="20" />
+        </div>
+        <div class="field">
+          <label class="label" for="contextMessageLimit">Title (optional)</label>
+          <input id="sessionTitle" class="input" type="text" placeholder="e.g., URL Shortener – Round 1" />
+        </div>
+      </div>
+
+      <div class="toggles">
+        <div class="toggle">
+          <span>includeTranscript</span>
+          <input id="includeTranscript" type="checkbox" checked />
+        </div>
+        <div class="toggle">
+          <span>persistMessages</span>
+          <input id="persistMessages" type="checkbox" checked />
+        </div>
+      </div>
+
+      <div class="actions" style="margin-top:14px;">
+        <button id="newSessionBtn" class="btn btn-secondary">Create New Session</button>
+        <button id="clearChatBtn" class="btn btn-ghost">Clear Chat</button>
+        <button id="forgetSessionBtn" class="btn btn-ghost">Delete Session</button>
+        <button id="resetSessionBtn" class="btn btn-ghost">Reset Session</button>
+      </div>
+
+      <div class="hint" style="margin-top:10px;">
+        <div><strong>Session:</strong> <span id="sessionIdText">none</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="layout">
+    <!-- Left: Config + Sessions (stacked) -->
+    <div class="leftStack">
+      <!-- Config -->
+      
+
+      <!-- Sessions -->
+      <div class="card">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <h3 class="card-title panel-title" style="margin:0;">Sessions</h3>
+          <button id="refreshSessionsBtn" class="btn btn-ghost" style="min-width:auto;padding:8px 12px;">Refresh</button>
+        </div>
+
+        <div class="field" style="margin-top:4px;">
+          <label class="label" for="resumeSessionId">Resume by sessionId</label>
+          <div class="row">
+            <input id="resumeSessionId" type="text" placeholder="Paste a sessionId" />
+            <button id="resumeSessionBtn" class="btn btn-ghost">Resume</button>
+          </div>
+          <div class="hint">Resuming locks Mode + System Prompt for that session.</div>
+        </div>
+
+        <div id="sessionsList" class="sessionsList">
+          <div class="sessionsEmpty" data-empty="1">No sessions loaded yet. Click Refresh.</div>
+        </div>
+
+        <div class="hint" style="margin-top:10px;">
+          Tip: click a session row to resume. Use Delete to remove the session and all messages.
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Chat -->
+    <div class="card">
+      <h3 class="card-title">Chat</h3>
+
+      <div class="chatShell">
+        <div id="chatArea" class="chatArea">
+          <div class="emptyState" data-empty="1">Start by sending a message. The assistant will stream its response.</div>
+        </div>
+
+        <div class="composerBar">
+          <div class="composerRow">
+            <textarea
+              id="userPrompt"
+              placeholder="Message Interview Chat Assistant…"
+            ></textarea>
+
+            <button id="sendBtn" class="iconBtn primary" title="Send">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M3 11.5l18-8-8 18-2.5-7L3 11.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              </svg>
+            </button>
+
+            <button id="stopBtn" class="iconBtn" title="Stop" disabled>
+              <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M7 7h10v10H7V7z" stroke="currentColor" stroke-width="1.8" />
+              </svg>
+            </button>
+          </div>
+          <div class="hint" style="margin-top:8px;">Send uses streaming. Stop cancels the current response.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>

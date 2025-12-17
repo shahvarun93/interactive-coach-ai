@@ -15,7 +15,7 @@ function ask(question: string): Promise<string> {
 
 async function main() {
   try {
-    console.log("=== System Design Co-Pilot CLI ===");
+    console.log("=== Interactive Coach CLI ===");
     const email = (await ask("Enter your email (used in the API): ")).trim();
 
     while (true) {
