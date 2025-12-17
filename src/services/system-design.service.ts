@@ -19,6 +19,12 @@ import { SystemDesignStudyPlan } from "../interfaces/SystemDesignStudyPlan";
 import { SDResource } from "../interfaces/SDResource";
 import { CACHE_DEBUG, cacheGet, cacheSet } from "../infra/redis";
 import { SystemDesignHistoryItem, SystemDesignHistoryPage } from "../interfaces/SystemDesignHistory";
+import {
+  CreateAISystemDesignSessionResult,
+  ChooseNextTopicAndDifficultyResult,
+  ResourcesByTopic,
+  ResourceItem,
+} from "../interfaces/SystemDesignService";
 
 export async function submitSystemDesignAnswer(
   sessionId: string,
@@ -66,9 +72,9 @@ export async function listSessionsForUser(
 
 export async function createAISystemDesignSessionForUser(
   userId: string,
-  difficulty: "easy" | "medium" | "hard" = "medium",
+  difficulty: Difficulty = "medium",
   topic: string | null
-): Promise<{ session: SystemDesignSession; question: string }> {
+): Promise<CreateAISystemDesignSessionResult> {
   const { question } = await systemDesignAiService.generateSystemDesignQuestion(
     difficulty,
     topic
@@ -220,7 +226,7 @@ export async function createCoachFeedbackForSession(
       topicMistakePatterns,
     });
 
-  const resourcesPayload = resources.map((r: any) => ({
+  const resourcesPayload = resources.map((r: any): ResourceItem & { topic: string; contentSnippet: string } => ({
     id: r.id,
     title: r.title,
     url: r.url ?? null,
@@ -359,7 +365,7 @@ function chooseDifficultyForTopic(
 
 export async function chooseNextTopicAndDifficultyForUser(
   userId: string
-): Promise<{ topic: string; difficulty: Difficulty; reason: string }> {
+): Promise<ChooseNextTopicAndDifficultyResult> {
   const stats = await getUserSystemDesignStats(userId);
 
   if (stats.answeredSessions >= 5) {
@@ -509,10 +515,7 @@ export async function getSystemDesignPlanForUser(
 
   // Pull a few resources for each weak topic
   // Pull a few *semantically relevant* resources for each weak topic (RAG)
-  const resourcesByTopic: Record<
-    string,
-    { id: string; title: string; url: string | null }[]
-  > = {};
+  const resourcesByTopic: ResourcesByTopic = {};
 
   for (const topic of stats.weakTopics || []) {
     const normalizedTopic = topic; // reuse your topic normalization if needed
@@ -537,7 +540,7 @@ export async function getSystemDesignPlanForUser(
         );
 
       // 3) Map to the simple shape expected by the AI service
-      resourcesByTopic[topic] = resources.map((r) => ({
+      resourcesByTopic[topic] = resources.map((r): ResourceItem => ({
         id: r.id,
         title: r.title,
         url: r.url ?? null,
@@ -554,7 +557,7 @@ export async function getSystemDesignPlanForUser(
           normalizedTopic,
           3
         );
-      resourcesByTopic[topic] = fallbackResources.map((r: any) => ({
+      resourcesByTopic[topic] = fallbackResources.map((r: any): ResourceItem => ({
         id: r.id,
         title: r.title,
         url: r.url ?? null,

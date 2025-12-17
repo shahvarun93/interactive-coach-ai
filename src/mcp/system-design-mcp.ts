@@ -8,6 +8,8 @@ import * as systemDesignService from "../services/system-design.service";
 import * as systemDesignResourcesService from "../services/sd-resources.service";
 import * as systemDesignLangGraphAgent from "../agents/system-design-langgraph";
 import { SDResource } from "../interfaces/SDResource";
+import { MCPEmailInput } from "../interfaces/SystemDesignMCP";
+import { ResourceItem, ResourcesByTopic } from "../interfaces/SystemDesignService";
 
 const mcpServer = new McpServer({
   name: "sd-copilot-mcp",
@@ -23,7 +25,7 @@ mcpServer.registerTool(
     }),
   },
   // handler
-  async (input: { email: string }) => {
+  async (input: MCPEmailInput) => {
     try {
       const email = String(input.email || "").trim();
       if (!email) {
@@ -60,15 +62,12 @@ mcpServer.registerTool(
         };
       }
 
-      const resourcesByTopic: Record<
-        string,
-        { id: string; title: string; url: string | null }[]
-      > = {};
+      const resourcesByTopic: ResourcesByTopic = {};
 
       for (const topic of weakTopics) {
         const resources =
           await systemDesignResourcesService.findResourcesForTopic(topic, 3);
-        resourcesByTopic[topic] = resources.map((r: SDResource) => ({
+        resourcesByTopic[topic] = resources.map((r: SDResource): ResourceItem => ({
           id: r.id,
           title: r.title,
           url: r.url ?? null,
@@ -114,7 +113,7 @@ mcpServer.registerTool(
       email: z.string().describe("User email address"),
     }),
   },
-  async (input: { email: string }) => {
+  async (input: MCPEmailInput) => {
     console.log("[MCP] sd_study_plan called with", input);
     try {
       const email = String(input.email || "").trim();
@@ -183,7 +182,7 @@ mcpServer.registerTool(
       email: z.string().describe("User email address"),
     }),
   },
-  async (input: { email: string }) => {
+  async (input: MCPEmailInput) => {
     const email = String(input.email || "").trim();
     if (!email) {
       return {

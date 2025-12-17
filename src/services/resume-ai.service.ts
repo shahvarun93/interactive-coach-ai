@@ -2,14 +2,8 @@
 import { z } from "zod";
 import * as openAiClient from "../infra/openaiClient";
 import { ResumeAnalysis } from "../interfaces/ResumeAnalysis";
-
-type AnalyzeMode = "firstPass" | "postTailor";
-
-interface AnalyzeResumeOptions {
-  targetRole?: string;
-  targetCompany?: string;
-  mode?: AnalyzeMode;
-}
+import { AnalyzeMode, AnalyzeResumeOptions } from "../interfaces/ResumeAI";
+import { TailorResumeFromTextInput } from "../interfaces/ResumeService";
 
 // ----- Zod schemas for resume analysis -----
 
@@ -314,12 +308,9 @@ const TailoredResumeSchema = z.object({
 
 export type TailoredResumeResult = z.infer<typeof TailoredResumeSchema>;
 
-export async function tailorResumeToJobDescription(args: {
-  text: string;
-  jobDescription: string;
-  targetRole?: string;
-  targetCompany?: string;
-}): Promise<TailoredResumeResult> {
+export async function tailorResumeToJobDescription(
+  args: TailorResumeFromTextInput
+): Promise<TailoredResumeResult> {
   const { text, jobDescription, targetRole, targetCompany } = args;
 
   const systemPrompt = `

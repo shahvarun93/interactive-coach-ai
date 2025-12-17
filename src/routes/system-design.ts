@@ -5,6 +5,7 @@ import * as usersDao from "../dao/users.dao";
 import { findUserByEmail } from "../services/users.service";
 import * as systemDesignGraph from "../agents/system-design-langgraph";
 import * as systemDesignCoachGraph from "../agents/sd-coach-graph";
+import { SubmitAnswerBody } from "../interfaces/SystemDesignRoute";
 
 const router = Router();
 
@@ -80,10 +81,7 @@ router.post("/generate-prompt", async (req, res) => {
 
 router.post("/submit-answer", async (req, res) => {
   try {
-    const { sessionId, answer } = req.body as {
-      sessionId?: string;
-      answer?: string;
-    };
+    const { sessionId, answer } = req.body as SubmitAnswerBody;
 
     if (!sessionId || !answer) {
       return res

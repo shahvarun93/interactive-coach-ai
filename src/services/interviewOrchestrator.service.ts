@@ -3,23 +3,33 @@ import type { ChatMessage } from "../interfaces/Chat";
 import * as interviewDao from "../dao/interview.dao";
 import * as promptBuilder from "./interviewPromptBuilder-ai.service";
 import * as summarizerAi from "./interviewSummarizer-ai.service";
+import {
+  MessageWithRoleAndContent,
+  TrimMessagesToInputBudgetParams,
+  BuildEffectiveTokenBudgetParams,
+  CreateSessionParams,
+  GetSessionParams,
+  GetSessionMessagesParams,
+  ListSessionsParams,
+  DeleteSessionParams,
+  StreamTurnParams,
+  RunTurnParams,
+  UpdateSessionSummaryParams,
+  StreamTurnResult,
+} from "../interfaces/InterviewOrchestrator";
 
 const CONTEXT_WINDOW_TOKENS = Number(process.env.OPENAI_CONTEXT_WINDOW_TOKENS ?? 128000);
 const TOKEN_SAFETY_MARGIN = Number(process.env.OPENAI_TOKEN_SAFETY_MARGIN ?? 512);
 const MAX_USER_CHARS = Number(process.env.OPENAI_MAX_USER_CHARS ?? 12000);
 
-function estimateTokens(messages: Array<{ role: string; content: string }>): number {
+function estimateTokens(messages: MessageWithRoleAndContent[]): number {
   const chars = messages.reduce((sum, m) => sum + (m.content?.length ?? 0), 0);
   return Math.ceil(chars / 4) + messages.length * 8;
 }
 
-function trimMessagesToInputBudget(params: {
-  summaryMsg: ChatMessage[];
-  systemMsgs: ChatMessage[];
-  transcriptMsgs: ChatMessage[];
-  nonSystemMsgs: ChatMessage[];
-  maxInputTokens: number;
-}): { messages: ChatMessage[]; requestLogMessages: ChatMessage[] } {
+function trimMessagesToInputBudget(
+  params: TrimMessagesToInputBudgetParams
+): { messages: ChatMessage[]; requestLogMessages: ChatMessage[] } {
   const summaryMsg = params.summaryMsg ?? [];
   const systemMsgs = params.systemMsgs ?? [];
   let transcriptMsgs = [...(params.transcriptMsgs ?? [])];
@@ -58,12 +68,9 @@ function clampInt(n: unknown, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.floor(v)));
 }
 
-function buildEffectiveTokenBudget(params: {
-  summaryMsg: ChatMessage[];
-  systemMsgs: ChatMessage[];
-  transcriptMsgs: ChatMessage[];
-  nonSystemMsgs: ChatMessage[];
-}): {
+function buildEffectiveTokenBudget(
+  params: BuildEffectiveTokenBudgetParams
+): {
   maxOutputTokens: number;
   maxInputTokens: number;
   messages: ChatMessage[];
@@ -114,14 +121,9 @@ function buildEffectiveTokenBudget(params: {
 }
 
 
-export async function createSession(params: {
-  title?: string;
-  systemPrompt?: string | null;
-  contextMessageLimit?: number | null;
-  maxOutputTokens?: number | null;
-  includeTranscript?: boolean | null;
-  persistMessages?: boolean | null;
-}): Promise<{ sessionId: string }> {
+export async function createSession(
+  params: CreateSessionParams
+): Promise<{ sessionId: string }> {
   const sessionId = await interviewDao.insertSession({
     title: params.title,
     systemPrompt: params.systemPrompt ?? null,
@@ -132,11 +134,7 @@ export async function createSession(params: {
   return { sessionId };
 }
 
-export async function getSession(params: {
-  sessionId: string;
-  includeTranscript?: boolean;
-  limit?: number;
-}): Promise<any> {
+export async function getSession(params: GetSessionParams): Promise<any> {
   const session = await interviewDao.getSessionById(params.sessionId);
   if (!session) throw new Error("Session not found");
 
@@ -167,10 +165,9 @@ export async function getSession(params: {
     };
 }
 
-export async function getSessionMessages(params: {
-  sessionId: string;
-  limit?: number;
-}): Promise<ChatMessage[]> {
+export async function getSessionMessages(
+  params: GetSessionMessagesParams
+): Promise<ChatMessage[]> {
   const session = await interviewDao.getSessionById(params.sessionId);
   if (!session) throw new Error("Session not found");
 
@@ -185,11 +182,9 @@ export async function getSessionMessages(params: {
   return transcript.map(toChat);
 }
 
-export async function listSessions(params: {
-  limit?: number;
-  cursorUpdatedAt?: string | null;
-  cursorId?: string | null;
-}): Promise<{
+export async function listSessions(
+  params: ListSessionsParams
+): Promise<{
   sessions: Array<{
     sessionId: string;
     title: string | null;
@@ -205,9 +200,9 @@ export async function listSessions(params: {
   });
 }
 
-export async function deleteSession(params: {
-  sessionId: string;
-}): Promise<{ deleted: boolean }> {
+export async function deleteSession(
+  params: DeleteSessionParams
+): Promise<{ deleted: boolean }> {
   const session = await interviewDao.getSessionById(params.sessionId);
   if (!session) throw new Error("Session not found");
   return interviewDao.deleteSession(params.sessionId);
@@ -216,18 +211,7 @@ export async function deleteSession(params: {
 export async function streamTurn({
   sessionId,
   dto,
-}: {
-  sessionId: string;
-  dto: RunRequestDto;
-}): Promise<{
-  runId: string;
-  stream: AsyncGenerator<string, void, void>;
-  finalize: (fullText: string) => Promise<{
-    runId: string;
-    assistantText: string;
-    latencyMs: number;
-  }>;
-}> {
+}: StreamTurnParams): Promise<StreamTurnResult> {
   const startMs = Date.now();
 
   const session = await interviewDao.getSessionById(sessionId);
@@ -417,10 +401,7 @@ export async function streamTurn({
 export async function runTurn({
   sessionId,
   dto,
-}: {
-  sessionId: string;
-  dto: RunRequestDto;
-}): Promise<RunResultDto> {
+}: RunTurnParams): Promise<RunResultDto> {
   const startMs = Date.now();
 
   const session = await interviewDao.getSessionById(sessionId);
@@ -620,11 +601,7 @@ export async function runTurn({
   }
 }
 
-async function updateSessionSummary(params: {
-  sessionId: string;
-  triggerCount: number;
-  sliceLimit: number;
-}) {
+async function updateSessionSummary(params: UpdateSessionSummaryParams) {
   const count = await interviewDao.countMessages(params.sessionId);
   if (count < params.triggerCount) return;
 

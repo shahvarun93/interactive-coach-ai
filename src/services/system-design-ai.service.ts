@@ -15,6 +15,11 @@ import { UserSystemDesignStats } from "../interfaces/UserSDStats";
 import { SystemDesignStudyPlan } from "../interfaces/SystemDesignStudyPlan";
 import * as sdResourceDao from "../dao/sd-resources.dao";
 import { SDResource } from "../interfaces/SDResource";
+import {
+  GetRagResourcesForSessionParams,
+  GenerateSystemDesignStudyPlanParams,
+} from "../interfaces/SystemDesignAI";
+import { ResourcesByTopic } from "../interfaces/SystemDesignService";
 
 const QuestionResponseSchema = z.object({
   question: z.string().min(1),
@@ -400,13 +405,9 @@ Return strict JSON with topic, difficulty, reason.
   });
 }
 
-export async function generateSystemDesignStudyPlan(args: {
-  stats: any; // your UserSystemDesignStats type if you have it
-  resourcesByTopic: Record<
-    string,
-    { id: string; title: string; url: string | null }[]
-  >;
-}) {
+export async function generateSystemDesignStudyPlan(
+  args: GenerateSystemDesignStudyPlanParams
+) {
   const { stats, resourcesByTopic } = args;
 
   const systemPrompt = `
@@ -473,11 +474,9 @@ Output STRICTLY as JSON following this schema:
   } as SystemDesignStudyPlan;
 }
 
-async function getRagResourcesForSession(session: {
-  topic: string;
-  question: string;
-  weaknesses: string[];
-}) {
+async function getRagResourcesForSession(
+  session: GetRagResourcesForSessionParams
+) {
   const { topic, question, weaknesses } = session;
 
   const queryText = [

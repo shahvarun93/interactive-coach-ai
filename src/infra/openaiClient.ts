@@ -11,6 +11,13 @@ we reject it early with a clear error rather than letting bugs leak through the 
 import { z } from "zod";
 import { ChatCompletionResult, ChatMessage } from "../interfaces/Chat";
 import { Stream } from "openai/streaming";
+import type { Message } from "../interfaces/OpenAIClient";
+import {
+  OpenAiClientJsonResponseParams,
+  OpenAiClientTextResponseParams,
+  OpenAiClientCreateChatCompletionParams,
+  OpenAiClientChatCompletionStreamParams,
+} from "../interfaces/OpenAIClient";
 
 const AI_LOG_DEBUG = process.env.AI_LOG_DEBUG === "1";
 
@@ -69,10 +76,7 @@ async function timeOpenAiCall<T>(
   }
 }
 
-export type Message = {
-  role: "system" | "user" | "assistant";
-  content: string;
-};
+export type { Message } from "../interfaces/OpenAIClient";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -127,12 +131,7 @@ async function openAiClientJsonResponse<T>({
   messages,
   schema,
   temperature,
-}: {
-  model?: string;
-  messages: Message[]; // system and user prompt
-  schema: z.ZodSchema<T>;
-  temperature?: number;
-}): Promise<T> {
+}: OpenAiClientJsonResponseParams<T>): Promise<T> {
   const response = await timeOpenAiCall("json_response", model, () =>
     client.responses.create({
       model,
@@ -158,11 +157,7 @@ async function openAiClientTextResponse({
   model = "gpt-4.1-mini",
   messages,
   temperature,
-}: {
-  model?: string;
-  messages: Message[];
-  temperature?: number;
-}): Promise<string> {
+}: OpenAiClientTextResponseParams): Promise<string> {
   const response = await timeOpenAiCall("text_response", model, () =>
     client.responses.create({
       model,
@@ -174,12 +169,9 @@ async function openAiClientTextResponse({
   return extractText(response);
 }
 
-async function openAiClientCreateChatCompletion<T>(params: {
-  model: string;
-  messages: ChatMessage[];
-  maxTokens: number;
-  responseFormat?: any;
-}): Promise<ChatCompletionResult> {
+async function openAiClientCreateChatCompletion<T>(
+  params: OpenAiClientCreateChatCompletionParams
+): Promise<ChatCompletionResult> {
   const response = await timeOpenAiCall("chat_completion", params.model, () =>
     client.chat.completions.create({
       model: params.model,
@@ -200,11 +192,9 @@ async function openAiClientCreateChatCompletion<T>(params: {
   };
 }
 
-async function* openAiClientChatCompletionStream(params: {
-  model: string;
-  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
-  maxTokens: number;
-}): AsyncGenerator<string, void, void> {
+async function* openAiClientChatCompletionStream(
+  params: OpenAiClientChatCompletionStreamParams
+): AsyncGenerator<string, void, void> {
   const stream = await timeOpenAiCall("chat_completion_stream", params.model, () =>
     client.chat.completions.create({
       model: params.model,

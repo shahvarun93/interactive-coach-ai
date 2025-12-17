@@ -3,11 +3,11 @@
 
 import { ChatMessage } from "../interfaces/Chat";
 import * as openAiClient from "../infra/openaiClient";
+import { SummarizeTranscriptParams } from "../interfaces/InterviewSummarizer";
 
-export async function summarizeTranscript(args: {
-  priorSummary: string | null;
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
-}): Promise<string> {
+export async function summarizeTranscript(
+  args: SummarizeTranscriptParams
+): Promise<string> {
   const system = [
     "You are a summarization engine for an interview chat.",
     "Write a compact, factual running summary that preserves: goals, constraints, key decisions, APIs/contracts, schema, bugs/fixes, and next steps.",

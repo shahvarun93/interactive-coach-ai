@@ -5,6 +5,7 @@ import {
   AnalyzeResumeResult,
   AnalyzeResumeTextInput,
 } from "../interfaces/ResumeAnalysis";
+import { TailorResumeFromTextInput } from "../interfaces/ResumeService";
 import pdfParseModule from "pdf-parse";
 import mammoth from "mammoth";
 
@@ -46,12 +47,7 @@ export async function analyzeResumeFromText(
   };
 }
 
-export async function tailorResumeFromText(input: {
-  text: string;
-  jobDescription: string;
-  targetRole?: string;
-  targetCompany?: string;
-}) {
+export async function tailorResumeFromText(input: TailorResumeFromTextInput) {
   return resumeAiService.tailorResumeToJobDescription(input);
 }
 
