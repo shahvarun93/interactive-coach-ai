@@ -13,11 +13,11 @@ class SdInterviewChatAssistant extends HTMLElement {
   }
 
   async connectedCallback() {
-    const html = await fetch(
-      "./components/interview-chat-assistant/interview-chat-assistant.component.html"
-    ).then((r) => r.text());
+    const url = "./components/interview-chat-assistant/interview-chat-assistant.component.html";
+    const html = await fetch(url).then((r) => r.text());
 
     this.shadowRoot.innerHTML = html;
+    await window.attachComponentCss(this.shadowRoot, url);
 
     this.$ = (id) => this.shadowRoot.getElementById(id);
 

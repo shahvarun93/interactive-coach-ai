@@ -27,11 +27,11 @@ class ResumeAssistant extends HTMLElement {
   }
 
   async connectedCallback() {
-    const html = await fetch(
-      "./components/resume-assistant/resume-assistant.component.html"
-    ).then((r) => r.text());
+    const url = "./components/resume-assistant/resume-assistant.component.html";
+    const html = await fetch(url).then((r) => r.text());
 
     this.shadowRoot.innerHTML = html;
+    await window.attachComponentCss(this.shadowRoot, url);
 
     // this.baseUrl = "http://34.149.127.45"; // keep dev URL
     this.bindElements();
