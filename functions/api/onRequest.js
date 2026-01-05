@@ -1,6 +1,15 @@
 export async function onRequest(context) {
     const { request, params } = context;
   
+    // TEMP DEBUG: confirm this Pages Function is being invoked.
+    // Visit https://<your-pages-domain>/api/onRequest to see this JSON.
+    if (new URL(request.url).pathname === "/api/onRequest") {
+      return new Response(
+        JSON.stringify({ ok: true, via: "pages-function", note: "This file only matches /api/onRequest. Use functions/api/[...path].js to match /api/*" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  
     const BACKEND_ORIGIN = "http://34.149.127.45";
   
     const incomingUrl = new URL(request.url);
