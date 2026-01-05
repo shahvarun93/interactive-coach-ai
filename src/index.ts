@@ -45,7 +45,9 @@ function requireInternalApiKey(
   res: Response,
   next: NextFunction
 ) {
+  // Allow kube / LB probes (unauthenticated)
   if (
+    req.path === "/" || // default GKE probes
     req.path.includes("health") ||
     req.path.includes("ready") ||
     req.path.includes("live")
