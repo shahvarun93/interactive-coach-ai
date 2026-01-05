@@ -40,7 +40,16 @@ function matchesAnyInternalKey(provided: string): boolean {
 }
 
 function requireInternalApiKey(req: Request, res: Response, next: NextFunction) {
-  if (req.path === `${API_PREFIX}/health`) return next();
+  // This middleware is mounted at API_PREFIX, so `req.path` is relative to that mount point.
+  // Allow Kubernetes/ALB health endpoints to remain public.
+  // Examples that should pass:
+  //   /api/v1/health   -> req.path === "/health"
+  //   /api/v1/healthz  -> req.path === "/healthz"
+  //   /api/v1/readyz   -> req.path === "/readyz"
+  // Also allow direct (non-prefixed) health checks if your infra hits them.
+  const healthPath = req.path;
+  if (/^\/(health|healthz|readyz|livez)$/.test(healthPath)) return next();
+  if (/^\/api\/v1\/(health|healthz|readyz|livez)$/.test(req.originalUrl)) return next();
 
   const key = (req.get("X-Internal-Api-Key") || "").trim();
 
