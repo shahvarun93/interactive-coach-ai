@@ -1,9 +1,13 @@
 export async function onRequest(context) {
   const { request, params } = context;
 
-  // IMPORTANT: Prefer a real hostname with TLS (e.g. https://api.yourdomain.com).
-  // Using a raw IP is OK for server-to-server proxying, but some GKE Ingress setups enforce host-based routing.
-  const BACKEND_ORIGIN = "http://34.149.127.45";
+  // IMPORTANT: BACKEND_ORIGIN must be your *real* GKE Ingress origin.
+  // If you accidentally point this at a Cloudflare proxy IP, you'll get Cloudflare Error 1003 (Direct IP access not allowed).
+  // Recommended:
+  //   - Use the GKE Ingress external IP directly (from `kubectl get ingress` / GCP console), OR
+  //   - Use a real hostname (best), OR
+  //   - Use a free nip.io hostname for an IP: http://<IP>.nip.io (no domain purchase)
+  const BACKEND_ORIGIN = "http://34.149.127.45.nip.io";
 
   const incomingUrl = new URL(request.url);
 
@@ -19,13 +23,19 @@ export async function onRequest(context) {
   headers.delete("content-length");
   headers.delete("host");
 
-  // Some backends/ingress controllers validate Host and/or forwarded headers.
-  // Setting these explicitly often resolves unexpected 403s.
   const backendHost = new URL(BACKEND_ORIGIN).host;
-  headers.set("Host", backendHost);
+
+  // If backendHost is a hostname, forcing Host helps host-based ingress routing.
+  // If it's a bare IP, forcing Host can cause Cloudflare 1003 if that IP belongs to Cloudflare.
+  const looksLikeIp = /^\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?$/.test(backendHost);
+  if (!looksLikeIp) headers.set("Host", backendHost);
+
   headers.set("X-Forwarded-Host", incomingUrl.host);
   headers.set("X-Forwarded-Proto", incomingUrl.protocol.replace(":", ""));
-  headers.set("X-Forwarded-For", request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For") || "");
+  headers.set(
+    "X-Forwarded-For",
+    request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For") || ""
+  );
   headers.set("User-Agent", request.headers.get("User-Agent") || "cloudflare-pages-proxy");
 
   // Handle CORS preflight locally.
