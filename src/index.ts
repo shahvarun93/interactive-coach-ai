@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import path from "path";
+import crypto from "crypto";
 import express, { Request, Response, NextFunction } from 'express';
 import healthRouter from './routes/health';
 import usersRouter from './routes/users'; // we'll create this file in a bit
@@ -22,14 +23,26 @@ app.use((req, _res, next) => {
 // Routes
 const API_PREFIX = '/api/v1';
 // Put this near the top of your app setup (before routes)
-const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY;
+// Shared secret used to prove the request came through the Cloudflare Pages proxy.
+// Support optional rotation by allowing a previous key during rollout.
+const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY || "";
+
+function timingSafeEquals(a: string, b: string): boolean {
+  // Important: timingSafeEqual throws if lengths differ.
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
+function matchesAnyInternalKey(provided: string): boolean {
+  if (!provided) return false;
+  if (INTERNAL_API_KEY && timingSafeEquals(provided, INTERNAL_API_KEY)) return true;
+  return false;
+}
 
 function requireInternalApiKey(req: Request, res: Response, next: NextFunction) {
-  // This middleware is mounted at API_PREFIX, so req.path is relative to that prefix.
-  // Allow the health endpoint to remain public.
-  if (req.path === "/health") return next();
+  if (req.path === `${API_PREFIX}/health`) return next();
 
-  const key = req.get("X-Internal-Api-Key");
+  const key = (req.get("X-Internal-Api-Key") || "").trim();
 
   if (!INTERNAL_API_KEY) {
     return res
@@ -37,7 +50,7 @@ function requireInternalApiKey(req: Request, res: Response, next: NextFunction) 
       .json({ error: "Server misconfigured (missing INTERNAL_API_KEY)" });
   }
 
-  if (!key || key !== INTERNAL_API_KEY) {
+  if (!matchesAnyInternalKey(key)) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
