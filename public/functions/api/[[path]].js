@@ -37,6 +37,7 @@ export async function onRequest(context) {
     request.headers.get("CF-Connecting-IP") || request.headers.get("X-Forwarded-For") || ""
   );
   headers.set("User-Agent", request.headers.get("User-Agent") || "cloudflare-pages-proxy");
+  headers.set("X-Internal-Api-Key", context.env.INTERNAL_API_KEY);
 
   // Handle CORS preflight locally.
   if (request.method === "OPTIONS") {

@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import path from "path";
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import healthRouter from './routes/health';
 import usersRouter from './routes/users'; // we'll create this file in a bit
 import systemDesignRouter from './routes/system-design';
@@ -21,6 +21,31 @@ app.use((req, _res, next) => {
 });
 // Routes
 const API_PREFIX = '/api/v1';
+// Put this near the top of your app setup (before routes)
+const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY;
+
+function requireInternalApiKey(req: Request, res: Response, next: NextFunction) {
+  // This middleware is mounted at API_PREFIX, so req.path is relative to that prefix.
+  // Allow the health endpoint to remain public.
+  if (req.path === "/health") return next();
+
+  const key = req.get("X-Internal-Api-Key");
+
+  if (!INTERNAL_API_KEY) {
+    return res
+      .status(500)
+      .json({ error: "Server misconfigured (missing INTERNAL_API_KEY)" });
+  }
+
+  if (!key || key !== INTERNAL_API_KEY) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  return next();
+}
+
+// Apply to API routes only
+app.use(API_PREFIX, requireInternalApiKey);
 app.use(`${API_PREFIX}/health`, healthRouter);
 app.use(`${API_PREFIX}/users`, usersRouter);
 app.use(`${API_PREFIX}/system-design`, systemDesignRouter);
