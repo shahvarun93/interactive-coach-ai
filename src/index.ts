@@ -1,15 +1,15 @@
 // src/index.ts
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 dotenv.config();
 
 import path from "path";
 import crypto from "crypto";
-import express, { Request, Response, NextFunction } from 'express';
-import healthRouter from './routes/health';
-import usersRouter from './routes/users'; // we'll create this file in a bit
-import systemDesignRouter from './routes/system-design';
-import resumeRouter from './routes/resume';
-import interviewRouter from './routes/interview';
+import express, { Request, Response, NextFunction } from "express";
+import healthRouter from "./routes/health";
+import usersRouter from "./routes/users"; // we'll create this file in a bit
+import systemDesignRouter from "./routes/system-design";
+import resumeRouter from "./routes/resume";
+import interviewRouter from "./routes/interview";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,7 +21,7 @@ app.use((req, _res, next) => {
   next();
 });
 // Routes
-const API_PREFIX = '/api/v1';
+const API_PREFIX = "/api/v1";
 // Put this near the top of your app setup (before routes)
 // Shared secret used to prove the request came through the Cloudflare Pages proxy.
 // Support optional rotation by allowing a previous key during rollout.
@@ -35,21 +35,23 @@ function timingSafeEquals(a: string, b: string): boolean {
 
 function matchesAnyInternalKey(provided: string): boolean {
   if (!provided) return false;
-  if (INTERNAL_API_KEY && timingSafeEquals(provided, INTERNAL_API_KEY)) return true;
+  if (INTERNAL_API_KEY && timingSafeEquals(provided, INTERNAL_API_KEY))
+    return true;
   return false;
 }
 
-function requireInternalApiKey(req: Request, res: Response, next: NextFunction) {
-  // This middleware is mounted at API_PREFIX, so `req.path` is relative to that mount point.
-  // Allow Kubernetes/ALB health endpoints to remain public.
-  // Examples that should pass:
-  //   /api/v1/health   -> req.path === "/health"
-  //   /api/v1/healthz  -> req.path === "/healthz"
-  //   /api/v1/readyz   -> req.path === "/readyz"
-  // Also allow direct (non-prefixed) health checks if your infra hits them.
-  const healthPath = req.path;
-  if (/^\/(health|healthz|readyz|livez)$/.test(healthPath)) return next();
-  if (/^\/api\/v1\/(health|healthz|readyz|livez)$/.test(req.originalUrl)) return next();
+function requireInternalApiKey(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  if (
+    req.path.includes("health") ||
+    req.path.includes("ready") ||
+    req.path.includes("live")
+  ) {
+    return next();
+  }
 
   const key = (req.get("X-Internal-Api-Key") || "").trim();
 
