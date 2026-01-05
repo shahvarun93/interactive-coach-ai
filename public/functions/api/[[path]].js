@@ -90,6 +90,7 @@ export async function onRequest(context) {
   outHeaders.set("Cache-Control", "no-store");
   outHeaders.set("X-Proxy-Target", targetUrl.toString());
   outHeaders.set("X-Proxy-Upstream-Status", String(resp.status));
+  outHeaders.set("X-Debug-Has-Internal-Key", context.env.INTERNAL_API_KEY ? "1" : "0");
 
   return new Response(resp.body, { status: resp.status, headers: outHeaders });
 }
