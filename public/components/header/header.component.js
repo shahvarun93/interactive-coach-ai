@@ -40,6 +40,15 @@ class SdHeader extends HTMLElement {
           this.dispatchEvent(event);
         });
       this.shadowRoot
+        .querySelector("#coding-tutor")
+        .addEventListener("click", () => {
+          const event = new CustomEvent("coding-tutor-create", {
+            bubbles: true,
+            composed: true,
+          });
+          this.dispatchEvent(event);
+        });
+      this.shadowRoot
         .querySelector("#resume-assistant")
         .addEventListener("click", () => {
           const event = new CustomEvent("sd-resume-create", {

@@ -1,0 +1,128 @@
+<section class="page">
+  <div class="global-overlay" id="globalOverlay">
+    <div class="spinner"></div>
+  </div>
+
+  <div class="container">
+    <div class="page-header">
+      <h2 class="page-title">Coding Tutor</h2>
+      <p class="page-subtitle">Practice coding interviews with adaptive difficulty and feedback.</p>
+    </div>
+
+    <div class="card coding-candidate">
+      <div class="card-header">
+        <h3 class="card-title">Candidate</h3>
+        <span class="card-status" id="globalStatus"><span class="card-status-text">Idle</span></span>
+      </div>
+      <p class="card-desc">Enter your email to personalize questions and review history.</p>
+      <div class="input-row">
+        <input type="email" id="emailInput" placeholder="Enter your email" />
+        <button class="btn btn-primary" id="loadHistoryBtn">Load History</button>
+      </div>
+    </div>
+
+    <div class="coding-layout">
+      <div class="coding-row">
+        <article class="card span-4" id="codingQuestionCard">
+          <div class="card-header">
+            <h3 class="card-title">Next Question</h3>
+            <span class="card-status" id="questionStatus"><span class="card-status-text">Idle</span></span>
+          </div>
+          <p class="card-desc">Adaptive questions based on strengths and weaknesses.</p>
+
+          <div class="meta-grid">
+            <div><strong>Topic:</strong> <span id="topicText">—</span></div>
+            <div><strong>Difficulty:</strong> <span id="difficultyText">—</span></div>
+            <div><strong>Session:</strong> <span id="sessionIdText">—</span></div>
+          </div>
+
+          <p class="question-text question-box" id="questionText">Click Generate Question to get started.</p>
+
+          <div class="button-row">
+            <button class="btn btn-primary" id="generateQuestionBtn">Generate Question</button>
+            <button class="btn btn-secondary" id="clearQuestionBtn">Clear</button>
+          </div>
+        </article>
+
+        <article class="card span-8" id="codingPadCard">
+          <div class="card-header">
+            <h3 class="card-title">CoderPad</h3>
+            <span class="card-status" id="answerStatus"><span class="card-status-text">Waiting for your solution</span></span>
+          </div>
+          <p class="card-desc">Write a complete solution. The agent evaluates correctness and complexity.</p>
+
+          <div class="input-row language-row">
+            <label for="languageSelect" class="input-label">Language</label>
+            <select id="languageSelect">
+              <option value="JavaScript">JavaScript</option>
+              <option value="TypeScript">TypeScript</option>
+              <option value="Python">Python</option>
+              <option value="Java">Java</option>
+              <option value="Go">Go</option>
+            </select>
+          </div>
+
+          <textarea id="codeInput" class="code-input" rows="14" placeholder="Write your solution here..."></textarea>
+
+          <div class="button-row">
+            <button class="btn btn-primary" id="submitCodeBtn">Submit Solution</button>
+            <button class="btn btn-secondary" id="clearCodeBtn">Clear</button>
+          </div>
+          <div class="pill-score" id="lastScore" style="display:none"></div>
+        </article>
+      </div>
+
+      <div class="coding-row">
+        <article class="card span-6" id="codingEvalCard">
+          <div class="card-header">
+            <h3 class="card-title">Evaluation</h3>
+            <span class="card-status" id="evaluationStatus"><span class="card-status-text">Idle</span></span>
+          </div>
+          <p class="card-desc">Feedback on correctness, issues, and complexity.</p>
+
+          <div class="evaluation-grid">
+            <div>
+              <h4>Summary</h4>
+              <p id="evalSummary" class="question-text question-box">Submit a solution to get feedback.</p>
+            </div>
+            <div>
+              <h4>Correctness</h4>
+              <p id="evalCorrectness" class="pill pill-wide">—</p>
+            </div>
+            <div>
+              <h4>Time Complexity</h4>
+              <p id="evalTime">—</p>
+            </div>
+            <div>
+              <h4>Space Complexity</h4>
+              <p id="evalSpace">—</p>
+            </div>
+          </div>
+
+          <h4>Strengths</h4>
+          <ul id="evalStrengths" class="list"></ul>
+
+          <h4>Weaknesses</h4>
+          <ul id="evalWeaknesses" class="list"></ul>
+
+          <h4>Issues Found</h4>
+          <ul id="evalIssues" class="list"></ul>
+
+          <h4>Suggestions</h4>
+          <ul id="evalSuggestions" class="list"></ul>
+        </article>
+
+        <article class="card span-6" id="historyCard">
+          <div class="card-header">
+            <h3 class="card-title">Practice History</h3>
+            <span class="card-status" id="historyStatus"><span class="card-status-text">Idle</span></span>
+          </div>
+          <p class="card-desc">Review your recent sessions and scores.</p>
+          <div id="historyViewPretty"></div>
+          <pre id="historyViewRaw" class="history-raw" style="display:none"></pre>
+          <button class="btn btn-secondary" id="toggleHistoryRawBtn">Raw JSON</button>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>

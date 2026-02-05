@@ -26,6 +26,7 @@
   <script src="components/header/header.component.js" defer></script>
   <script src="components/home/home.component.js" defer></script>
   <script src="components/system-design/system-design.component.js" defer></script>
+  <script src="components/coding/coding.component.js" defer></script>
   <script src="components/resume-assistant/resume-assistant.component.js" defer></script>
   <script src="components/interview-chat-assistant/interview-chat-assistant.component.js" defer></script>
 
@@ -43,6 +44,13 @@
       parentComp.innerHTML = '';
       parentComp.appendChild(sdCoachComponent);
       document.getElementById('header').resetActiveLinkSelection('resume-assistant');
+    });
+    document.addEventListener('coding-tutor-create', function (event) {
+      const codingComponent = document.createElement('coding-tutor');
+      const parentComp = document.getElementById('component-container');
+      parentComp.innerHTML = '';
+      parentComp.appendChild(codingComponent);
+      document.getElementById('header').resetActiveLinkSelection('coding-tutor');
     });
     document.addEventListener('sd-home-create', function (event) {
       const sdCoachComponent = document.createElement('sd-home');

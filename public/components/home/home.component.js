@@ -36,6 +36,15 @@ class Home extends HTMLElement {
           this.dispatchEvent(event);
         });
       this.shadowRoot
+        .querySelector("#open-coding-component")
+        .addEventListener("click", () => {
+          const event = new CustomEvent("coding-tutor-create", {
+            bubbles: true,
+            composed: true,
+          });
+          this.dispatchEvent(event);
+        });
+      this.shadowRoot
         .querySelector("#interview-chat-assistant")
         .addEventListener("click", () => {
           const event = new CustomEvent("interview-chat-assistant-create", {

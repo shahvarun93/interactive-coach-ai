@@ -82,6 +82,11 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+function supportsTemperature(model: string): boolean {
+  // Some models (e.g., gpt-5) reject the temperature parameter in the Responses API.
+  return !model.startsWith("gpt-5");
+}
+
 function toResponseInput(messages: Message[]): ResponseCreateParams["input"] {
   return messages.map((message) => ({
     role: message.role,
@@ -132,12 +137,16 @@ async function openAiClientJsonResponse<T>({
   schema,
   temperature,
 }: OpenAiClientJsonResponseParams<T>): Promise<T> {
+  const payload: ResponseCreateParams = {
+    model,
+    input: toResponseInput(messages),
+  };
+  if (typeof temperature === "number" && supportsTemperature(model)) {
+    payload.temperature = temperature;
+  }
+
   const response = await timeOpenAiCall("json_response", model, () =>
-    client.responses.create({
-      model,
-      input: toResponseInput(messages),
-      temperature,
-    })
+    client.responses.create(payload)
   );
 
   const raw = extractText(response);
@@ -158,12 +167,16 @@ async function openAiClientTextResponse({
   messages,
   temperature,
 }: OpenAiClientTextResponseParams): Promise<string> {
+  const payload: ResponseCreateParams = {
+    model,
+    input: toResponseInput(messages),
+  };
+  if (typeof temperature === "number" && supportsTemperature(model)) {
+    payload.temperature = temperature;
+  }
+
   const response = await timeOpenAiCall("text_response", model, () =>
-    client.responses.create({
-      model,
-      input: toResponseInput(messages),
-      temperature,
-    })
+    client.responses.create(payload)
   );
 
   return extractText(response);
