@@ -13,7 +13,7 @@
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 24px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .span-4 { grid-column: span 4; }
@@ -21,37 +21,6 @@
 .span-8 { grid-column: span 8; }
 
 .coding-candidate { margin-bottom: 0; }
-
-/* Make row cards align visually */
-.coding-row > .card {
-  height: 100%;
-}
-
-/* Next Question card should feel balanced with CoderPad */
-#codingQuestionCard {
-  display: flex;
-  flex-direction: column;
-}
-
-#codingQuestionCard .question-box {
-  flex: 1;
-  min-height: 140px;
-}
-
-#codingQuestionCard .button-row {
-  margin-top: auto;
-}
-
-/* Practice History should not feel isolated or too short */
-#historyCard {
-  display: flex;
-  flex-direction: column;
-  min-height: 260px;
-}
-
-#historyCard .btn {
-  margin-top: auto;
-}
 
 .language-row .input-label {
   margin-bottom: 0;
@@ -69,6 +38,16 @@
   min-width: 96px;
   justify-content: center;
   text-align: center;
+}
+
+#codingQuestionCard .button-row,
+#codingPadCard .button-row {
+  flex-wrap: wrap;
+}
+
+#codingQuestionCard .button-row .btn,
+#codingPadCard .button-row .btn {
+  flex: 1 1 160px;
 }
 
 @media (max-width: 900px) {

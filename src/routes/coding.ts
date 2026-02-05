@@ -40,12 +40,16 @@ router.post("/submit-solution", async (req, res) => {
 
     return res.json({
       sessionId: result.sessionId,
+      score: result.evaluation.score,
       evaluation: result.evaluation,
     });
   } catch (err: any) {
     console.error("Error submitting coding solution:", err);
     if (err.message === "SESSION_NOT_FOUND") {
       return res.status(404).json({ error: "Session not found" });
+    }
+    if (err.message === "AI_SOLUTION_SUBMITTED") {
+      return res.status(403).json({ error: "AI solution submission is not allowed." });
     }
     return res.status(500).json({ error: "Failed to submit solution" });
   }
@@ -89,6 +93,23 @@ router.get("/history/:email", async (req, res) => {
   } catch (err: any) {
     console.error("Error fetching coding history:", err);
     return res.status(500).json({ error: "Failed to fetch coding history" });
+  }
+});
+
+router.get("/resume/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const result = await codingService.resumeLatestCodingSessionForEmail(email);
+    return res.json(result);
+  } catch (err: any) {
+    if (err.message === "USER_NOT_FOUND") {
+      return res.status(404).json({ error: "User not found" });
+    }
+    if (err.message === "NO_ACTIVE_SESSION") {
+      return res.status(404).json({ error: "No active session to resume." });
+    }
+    console.error("Error resuming coding session:", err);
+    return res.status(500).json({ error: "Failed to resume session" });
   }
 });
 

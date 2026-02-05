@@ -30,6 +30,7 @@ class CodingTutor extends HTMLElement {
     this.globalStatusText = this.globalStatus?.querySelector(".card-status-text");
 
     this.generateQuestionBtn = $("generateQuestionBtn");
+    this.resumeQuestionBtn = $("resumeQuestionBtn");
     this.clearQuestionBtn = $("clearQuestionBtn");
     this.questionStatus = $("questionStatus");
     this.questionTextEl = $("questionText");
@@ -40,6 +41,7 @@ class CodingTutor extends HTMLElement {
     this.languageSelect = $("languageSelect");
     this.codeInput = $("codeInput");
     this.submitCodeBtn = $("submitCodeBtn");
+    this.showSolutionBtn = $("showSolutionBtn");
     this.clearCodeBtn = $("clearCodeBtn");
     this.answerStatus = $("answerStatus");
     this.lastScoreEl = $("lastScore");
@@ -62,18 +64,31 @@ class CodingTutor extends HTMLElement {
     this.globalOverlay = this.shadowRoot.getElementById("globalOverlay");
 
     this.currentSessionId = null;
+    this.currentBoilerplate = "";
+    this.currentSolution = "";
+    this.lastSeededCode = "";
+    this.currentLanguage = this.languageSelect?.value || "JavaScript";
+    this.solutionLanguage = null;
 
     this.generateQuestionBtn?.addEventListener("click", () => this.generatePrompt());
+    this.resumeQuestionBtn?.addEventListener("click", () => this.resumeLatest());
     this.clearQuestionBtn?.addEventListener("click", () => this.resetQuestion());
     this.submitCodeBtn?.addEventListener("click", () => this.submitSolution());
+    this.showSolutionBtn?.addEventListener("click", () => this.showSolution());
     this.clearCodeBtn?.addEventListener("click", () => this.clearCode());
     this.loadHistoryBtn?.addEventListener("click", () => this.loadHistory());
     this.toggleHistoryRawBtn?.addEventListener("click", () => this.toggleHistory());
+    this.languageSelect?.addEventListener("change", () => this.handleLanguageChange());
 
     this.codeInput?.addEventListener("keydown", (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
         e.preventDefault();
         this.submitSolution();
+        return;
+      }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        this.insertTabSpaces();
       }
     });
 
@@ -143,6 +158,9 @@ class CodingTutor extends HTMLElement {
 
   resetQuestion() {
     this.currentSessionId = null;
+    this.currentBoilerplate = "";
+    this.currentSolution = "";
+    this.solutionLanguage = null;
     this.topicTextEl.textContent = "—";
     this.difficultyTextEl.textContent = "—";
     this.sessionIdTextEl.textContent = "—";
@@ -152,7 +170,83 @@ class CodingTutor extends HTMLElement {
   }
 
   clearCode() {
-    if (this.codeInput) this.codeInput.value = "";
+    if (this.codeInput) {
+      this.codeInput.value = this.currentBoilerplate || "";
+      this.lastSeededCode = this.codeInput.value;
+    }
+  }
+
+  insertTabSpaces() {
+    const textarea = this.codeInput;
+    if (!textarea) return;
+    const tab = "  ";
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = textarea.value;
+    textarea.value = value.slice(0, start) + tab + value.slice(end);
+    textarea.selectionStart = textarea.selectionEnd = start + tab.length;
+  }
+
+  normalizeLanguage(lang) {
+    const key = String(lang || "").trim().toLowerCase();
+    if (key.startsWith("js")) return "javascript";
+    if (key.includes("typescript") || key === "ts") return "typescript";
+    if (key.includes("python")) return "python";
+    if (key.includes("java")) return "java";
+    if (key.includes("go")) return "go";
+    return "javascript";
+  }
+
+  getBoilerplateForLanguage(lang) {
+    switch (lang) {
+      case "typescript":
+        return `function solve(input: string): string {\n  // TODO: implement\n  return \"\";\n}\n\nexport default solve;`;
+      case "python":
+        return `def solve(input: str) -> str:\n    # TODO: implement\n    return \"\"\n\nif __name__ == \"__main__\":\n    import sys\n    data = sys.stdin.read()\n    print(solve(data))`;
+      case "java":
+        return `import java.io.*;\nimport java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) throws Exception {\n        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));\n        StringBuilder sb = new StringBuilder();\n        String line;\n        while ((line = br.readLine()) != null) {\n            sb.append(line).append(\"\\n\");\n        }\n        System.out.print(solve(sb.toString()));\n    }\n\n    static String solve(String input) {\n        // TODO: implement\n        return \"\";\n    }\n}`;
+      case "go":
+        return `package main\n\nimport (\n  \"bufio\"\n  \"fmt\"\n  \"os\"\n  \"strings\"\n)\n\nfunc solve(input string) string {\n  // TODO: implement\n  return \"\"\n}\n\nfunc main() {\n  reader := bufio.NewReader(os.Stdin)\n  data, _ := reader.ReadString(0)\n  if len(data) == 0 {\n    b, _ := os.ReadFile(\"/dev/stdin\")\n    data = string(b)\n  }\n  fmt.Print(solve(strings.TrimRight(data, \"\\n\")))\n}`;
+      case "javascript":
+      default:
+        return `function solve(input) {\n  // TODO: implement\n  return \"\";\n}\n\nmodule.exports = solve;`;
+    }
+  }
+
+  handleLanguageChange() {
+    const newLang = this.languageSelect?.value || "JavaScript";
+    const normalizedNew = this.normalizeLanguage(newLang);
+    const normalizedPrev = this.normalizeLanguage(this.currentLanguage || newLang);
+
+    if (normalizedNew === normalizedPrev) return;
+
+    const currentCode = this.codeInput?.value || "";
+    const hasEdits = currentCode !== (this.lastSeededCode || "");
+
+    if (hasEdits) {
+      const ok = confirm(
+        "Changing language will replace your current code with a new boilerplate. Continue?"
+      );
+      if (!ok) {
+        this.languageSelect.value = this.currentLanguage;
+        return;
+      }
+    }
+
+    const boilerplate = this.getBoilerplateForLanguage(normalizedNew);
+    this.currentBoilerplate = boilerplate;
+    this.currentSolution = "";
+    this.solutionLanguage = null;
+    if (this.codeInput) {
+      this.codeInput.value = boilerplate;
+      this.lastSeededCode = boilerplate;
+    }
+    this.currentLanguage = newLang;
+    this.setCardStatus(this.answerStatus, "idle", `Boilerplate set for ${newLang}.`);
+  }
+
+  normalizeCode(code) {
+    return String(code).replace(/\s+/g, "").trim();
   }
 
   async generatePrompt() {
@@ -176,10 +270,20 @@ class CodingTutor extends HTMLElement {
       const data = await res.json();
 
       this.currentSessionId = data.sessionId || null;
+      this.currentBoilerplate = data.boilerplate || "";
+      this.currentSolution = data.solution || "";
+      this.solutionLanguage = this.normalizeLanguage(this.languageSelect?.value || "JavaScript");
+      this.currentLanguage = this.languageSelect?.value || "JavaScript";
+
       this.topicTextEl.textContent = data.topic || "—";
       this.difficultyTextEl.textContent = data.difficulty || "—";
       this.sessionIdTextEl.textContent = this.currentSessionId || "—";
       this.setQuestionText(data.question || "(No question text returned)");
+
+      if (this.codeInput) {
+        this.codeInput.value = this.currentBoilerplate || "";
+        this.lastSeededCode = this.codeInput.value;
+      }
 
       this.setCardStatus(this.questionStatus, "idle", "Prompt loaded");
       this.setGlobalStatus("idle", "Question ready.");
@@ -193,6 +297,69 @@ class CodingTutor extends HTMLElement {
     }
   }
 
+  async resumeLatest() {
+    const email = this.safeEmail();
+    if (!email) return;
+
+    this.setGlobalStatus("loading", "Resuming latest session...");
+    this.setCardStatus(this.questionStatus, "loading", "Loading session...");
+    this.resumeQuestionBtn.disabled = true;
+
+    try {
+      const res = await fetch(
+        this.apiUrl(`/api/v1/coding/resume/${encodeURIComponent(email)}`)
+      );
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+
+      this.currentSessionId = data.sessionId || null;
+      this.currentBoilerplate = data.boilerplate || "";
+      this.currentSolution = data.solution || "";
+      this.solutionLanguage = this.normalizeLanguage(data.language || this.languageSelect?.value || "JavaScript");
+
+      if (data.language && this.languageSelect) {
+        this.languageSelect.value = data.language;
+      }
+      this.currentLanguage = this.languageSelect?.value || "JavaScript";
+
+      this.topicTextEl.textContent = data.topic || "—";
+      this.difficultyTextEl.textContent = data.difficulty || "—";
+      this.sessionIdTextEl.textContent = this.currentSessionId || "—";
+      this.setQuestionText(data.question || "(No question text returned)");
+
+      if (this.codeInput) {
+        this.codeInput.value = data.code || this.currentBoilerplate || "";
+        this.lastSeededCode = this.codeInput.value;
+      }
+
+      this.setCardStatus(this.questionStatus, "idle", "Session resumed");
+      this.setGlobalStatus("idle", "Session ready.");
+    } catch (err) {
+      console.error(err);
+      this.setCardStatus(this.questionStatus, "error", "Failed to resume session");
+      this.setGlobalStatus("error", "Error resuming session");
+      alert("Error resuming session:\n" + err.message);
+    } finally {
+      this.resumeQuestionBtn.disabled = false;
+    }
+  }
+
+  showSolution() {
+    if (!this.currentSolution) {
+      alert("No solution available yet. Generate a question first.");
+      return;
+    }
+    const currentLang = this.normalizeLanguage(this.languageSelect?.value || "JavaScript");
+    if (this.solutionLanguage && this.solutionLanguage !== currentLang) {
+      alert("Solution is tied to the original language. Generate a new question for this language.");
+      return;
+    }
+    if (this.codeInput) {
+      this.codeInput.value = this.currentSolution;
+    }
+    this.setCardStatus(this.answerStatus, "idle", "AI solution loaded. Edit before submitting.");
+  }
+
   async submitSolution() {
     if (!this.currentSessionId) {
       alert("Generate a question first.");
@@ -201,6 +368,10 @@ class CodingTutor extends HTMLElement {
     const code = (this.codeInput?.value || "").trim();
     if (!code) {
       alert("Paste your solution first.");
+      return;
+    }
+    if (this.currentSolution && this.normalizeCode(code) === this.normalizeCode(this.currentSolution)) {
+      alert("Submitting the AI solution is disabled. Please write your own solution.");
       return;
     }
 
@@ -223,8 +394,12 @@ class CodingTutor extends HTMLElement {
       const data = await res.json();
 
       const evaluation = data.evaluation || {};
-      const score = typeof evaluation.score === "number" ? evaluation.score : null;
-      if (score !== null) {
+      const score = Number(
+        typeof data.score === "number" || typeof data.score === "string"
+          ? data.score
+          : evaluation.score
+      );
+      if (Number.isFinite(score)) {
         this.lastScoreEl.textContent = `Score: ${score}`;
         this.lastScoreEl.style.display = "inline-flex";
       } else {
@@ -313,8 +488,12 @@ class CodingTutor extends HTMLElement {
     items.forEach((s) => {
       const item = document.createElement("div");
       item.className = "history-item";
+      const questionText =
+        typeof s.question === "string" && s.question.trim()
+          ? s.question.trim()
+          : s.topic || "Session";
       item.innerHTML = `
-        <div class="history-topic">${s.topic || "Session"}</div>
+        <div class="history-topic">${questionText}</div>
         <div class="history-meta">
           <span class="pill-score">Score: ${s.score ?? "—"}</span>
           <span class="pill-difficulty">${s.difficulty || "—"}</span>

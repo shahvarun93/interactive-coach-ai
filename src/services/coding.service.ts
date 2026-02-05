@@ -1,6 +1,7 @@
 import * as usersDao from "../dao/users.dao";
 import * as codingDao from "../dao/coding.dao";
 import * as codingAi from "./coding-ai.service";
+import { getCodingSolution, saveCodingSolution } from "./coding-solution.store";
 import { CodingEvaluation } from "../interfaces/CodingEvaluation";
 import {
   CodingDifficulty,
@@ -42,25 +43,31 @@ export async function createCodingSessionForUser(args: {
 
   const { topic, difficulty } = await chooseNextTopicAndDifficulty(stats, args.topic, args.difficulty);
 
-  const question = await codingAi.generateCodingQuestion({
+  const language = args.language ?? "JavaScript";
+  const generated = await codingAi.generateCodingQuestion({
     topic,
     difficulty,
+    language,
   });
 
   const session = await codingDao.createCodingSession({
     userId: user.id,
-    question,
+    question: generated.question,
     topic,
     difficulty,
-    language: args.language ?? null,
+    language,
   });
+
+  await saveCodingSolution(session.id, generated.solution);
 
   return {
     sessionId: session.id,
-    question,
+    question: generated.question,
     topic,
     difficulty,
     userId: user.id,
+    boilerplate: generated.boilerplate,
+    solution: generated.solution,
   };
 }
 
@@ -74,6 +81,14 @@ export async function submitCodingSolution(args: {
     throw new Error("SESSION_NOT_FOUND");
   }
 
+  const solution = await getCodingSolution(session.id);
+  if (solution) {
+    const normalized = (s: string) => s.replace(/\s+/g, "").trim();
+    if (normalized(args.code) === normalized(solution)) {
+      throw new Error("AI_SOLUTION_SUBMITTED");
+    }
+  }
+
   const evaluation = await codingAi.evaluateCodingSubmission({
     question: session.question,
     code: args.code,
@@ -81,11 +96,16 @@ export async function submitCodingSolution(args: {
     difficulty: (session.difficulty ?? "medium") as CodingDifficulty,
   });
 
+  const numericScore = Number(evaluation.score);
+  if (!Number.isFinite(numericScore)) {
+    throw new Error("INVALID_SCORE");
+  }
+
   await codingDao.updateCodingSession({
     sessionId: session.id,
     code: args.code,
     language: args.language,
-    score: evaluation.score,
+    score: numericScore,
     strengths: JSON.stringify(evaluation.strengths),
     weaknesses: JSON.stringify(evaluation.weaknesses),
     issues: JSON.stringify(evaluation.issues),
@@ -93,14 +113,14 @@ export async function submitCodingSolution(args: {
     spaceComplexity: evaluation.spaceComplexity,
   });
 
-  return { sessionId: session.id, evaluation };
+  return { sessionId: session.id, evaluation: { ...evaluation, score: numericScore } };
 }
 
 export async function getCodingStats(userId: string): Promise<CodingUserStats> {
   const sessions = await codingDao.listSessionsForUser(userId);
 
   const totalSessions = sessions.length;
-  const answered = sessions.filter((s) => s.score != null);
+  const answered = sessions.filter((s) => s.code && s.score != null);
   const answeredSessions = answered.length;
   const averageScore =
     answeredSessions > 0
@@ -170,7 +190,7 @@ export async function getCodingHistoryForUser(
     topic: s.topic ?? "unknown",
     difficulty: (s.difficulty ?? "—") as CodingDifficulty | "—",
     question: s.question,
-    score: s.score,
+    score: s.code ? s.score : null,
     createdAt: s.created_at,
   }));
 
@@ -180,6 +200,34 @@ export async function getCodingHistoryForUser(
     page: safePage,
     pageSize: safePageSize,
     items,
+  };
+}
+
+export async function resumeLatestCodingSessionForEmail(email: string) {
+  const user = await usersDao.findUserByEmail(email);
+  if (!user) {
+    throw new Error("USER_NOT_FOUND");
+  }
+
+  const session = await codingDao.findLatestUnansweredSessionForUser(user.id);
+  if (!session) {
+    throw new Error("NO_ACTIVE_SESSION");
+  }
+
+  const normalizedLang = codingAi.normalizeLanguage(session.language ?? "JavaScript");
+  const boilerplate = codingAi.boilerplateForLanguage(normalizedLang);
+
+  const solution = await getCodingSolution(session.id);
+
+  return {
+    sessionId: session.id,
+    question: session.question,
+    topic: session.topic,
+    difficulty: session.difficulty,
+    language: session.language ?? "JavaScript",
+    boilerplate,
+    code: session.code ?? boilerplate,
+    solution: solution ?? null,
   };
 }
 
