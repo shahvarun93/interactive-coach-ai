@@ -50,6 +50,37 @@
   flex: 1 1 160px;
 }
 
+#historyCard .history-item {
+  cursor: pointer;
+}
+
+#historyCard .history-item:hover {
+  background: #eef2ff;
+}
+
+#historyCard .history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#historyCard .history-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#historyCard .history-actions {
+  flex: 0 0 auto;
+}
+
+#historyCard .btn-compact {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  border-radius: 999px;
+}
+
 @media (max-width: 900px) {
   .coding-row {
     grid-template-columns: 1fr;

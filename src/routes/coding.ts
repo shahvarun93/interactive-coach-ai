@@ -113,4 +113,42 @@ router.get("/resume/:email", async (req, res) => {
   }
 });
 
+router.get("/previous/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const result = await codingService.getLatestCodingSessionForEmail(email);
+    return res.json(result);
+  } catch (err: any) {
+    if (err.message === "USER_NOT_FOUND") {
+      return res.status(404).json({ error: "User not found" });
+    }
+    if (err.message === "NO_SESSION") {
+      return res.status(404).json({ error: "No sessions found." });
+    }
+    console.error("Error loading latest coding session:", err);
+    return res.status(500).json({ error: "Failed to load session" });
+  }
+});
+
+router.get("/session/:sessionId", async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const email = typeof req.query.email === "string" ? req.query.email : "";
+    if (!email) {
+      return res.status(400).json({ error: "email is required" });
+    }
+    const result = await codingService.getCodingSessionForEmail(email, sessionId);
+    return res.json(result);
+  } catch (err: any) {
+    if (err.message === "USER_NOT_FOUND") {
+      return res.status(404).json({ error: "User not found" });
+    }
+    if (err.message === "SESSION_NOT_FOUND") {
+      return res.status(404).json({ error: "Session not found" });
+    }
+    console.error("Error loading coding session:", err);
+    return res.status(500).json({ error: "Failed to load session" });
+  }
+});
+
 export default router;

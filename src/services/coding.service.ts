@@ -218,6 +218,7 @@ export async function resumeLatestCodingSessionForEmail(email: string) {
   const boilerplate = codingAi.boilerplateForLanguage(normalizedLang);
 
   const solution = await getCodingSolution(session.id);
+  const evaluation = buildEvaluationFromSession(session);
 
   return {
     sessionId: session.id,
@@ -228,6 +229,108 @@ export async function resumeLatestCodingSessionForEmail(email: string) {
     boilerplate,
     code: session.code ?? boilerplate,
     solution: solution ?? null,
+    evaluation,
+  };
+}
+
+export async function getLatestCodingSessionForEmail(email: string) {
+  const user = await usersDao.findUserByEmail(email);
+  if (!user) {
+    throw new Error("USER_NOT_FOUND");
+  }
+
+  const session = await codingDao.findLatestSessionForUser(user.id);
+  if (!session) {
+    throw new Error("NO_SESSION");
+  }
+
+  const normalizedLang = codingAi.normalizeLanguage(session.language ?? "JavaScript");
+  const boilerplate = codingAi.boilerplateForLanguage(normalizedLang);
+  const solution = await getCodingSolution(session.id);
+  const evaluation = buildEvaluationFromSession(session);
+
+  return {
+    sessionId: session.id,
+    question: session.question,
+    topic: session.topic,
+    difficulty: session.difficulty,
+    language: session.language ?? "JavaScript",
+    boilerplate,
+    code: session.code ?? boilerplate,
+    solution: solution ?? null,
+    evaluation,
+  };
+}
+
+export async function getCodingSessionForEmail(email: string, sessionId: string) {
+  const user = await usersDao.findUserByEmail(email);
+  if (!user) {
+    throw new Error("USER_NOT_FOUND");
+  }
+
+  const session = await codingDao.getSessionById(sessionId);
+  if (!session || session.user_id !== user.id) {
+    throw new Error("SESSION_NOT_FOUND");
+  }
+
+  const normalizedLang = codingAi.normalizeLanguage(session.language ?? "JavaScript");
+  const boilerplate = codingAi.boilerplateForLanguage(normalizedLang);
+  const solution = await getCodingSolution(session.id);
+  const evaluation = buildEvaluationFromSession(session);
+
+  return {
+    sessionId: session.id,
+    question: session.question,
+    topic: session.topic,
+    difficulty: session.difficulty,
+    language: session.language ?? "JavaScript",
+    boilerplate,
+    code: session.code ?? boilerplate,
+    solution: solution ?? null,
+    evaluation,
+  };
+}
+
+function parseList(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((v) => typeof v === "string");
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((v) => typeof v === "string");
+        }
+      } catch {
+        return [trimmed];
+      }
+    }
+    return [trimmed];
+  }
+  return [];
+}
+
+function deriveCorrectness(score: number): "correct" | "partially_correct" | "incorrect" {
+  if (score >= 8) return "correct";
+  if (score >= 5) return "partially_correct";
+  return "incorrect";
+}
+
+function buildEvaluationFromSession(session: { score?: any; strengths?: any; weaknesses?: any; issues?: any; time_complexity?: any; space_complexity?: any }) {
+  if (session.score == null) return null;
+  const numericScore = Number(session.score);
+  const correctness = Number.isFinite(numericScore) ? deriveCorrectness(numericScore) : "—";
+  return {
+    score: numericScore,
+    correctness,
+    summary: "Previously evaluated. Review strengths, weaknesses, and complexity below.",
+    strengths: parseList(session.strengths),
+    weaknesses: parseList(session.weaknesses),
+    issues: parseList(session.issues),
+    timeComplexity: session.time_complexity ?? "—",
+    spaceComplexity: session.space_complexity ?? "—",
+    suggestions: [],
   };
 }
 

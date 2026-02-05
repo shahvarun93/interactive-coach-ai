@@ -142,3 +142,17 @@ export async function findLatestUnansweredSessionForUser(userId: string): Promis
   );
   return (res.rows[0] as CodingSession) || null;
 }
+
+export async function findLatestSessionForUser(userId: string): Promise<CodingSession | null> {
+  const res = await query(
+    `
+    SELECT id, user_id, question, topic, difficulty, language, code, score, strengths, weaknesses, issues, time_complexity, space_complexity, created_at, updated_at
+    FROM coding_sessions_tbl
+    WHERE user_id = $1
+    ORDER BY created_at DESC
+    LIMIT 1
+    `,
+    [userId]
+  );
+  return (res.rows[0] as CodingSession) || null;
+}

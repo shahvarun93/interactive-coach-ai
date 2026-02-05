@@ -31,6 +31,7 @@ class CodingTutor extends HTMLElement {
 
     this.generateQuestionBtn = $("generateQuestionBtn");
     this.resumeQuestionBtn = $("resumeQuestionBtn");
+    this.loadPreviousBtn = $("loadPreviousBtn");
     this.clearQuestionBtn = $("clearQuestionBtn");
     this.questionStatus = $("questionStatus");
     this.questionTextEl = $("questionText");
@@ -72,6 +73,7 @@ class CodingTutor extends HTMLElement {
 
     this.generateQuestionBtn?.addEventListener("click", () => this.generatePrompt());
     this.resumeQuestionBtn?.addEventListener("click", () => this.resumeLatest());
+    this.loadPreviousBtn?.addEventListener("click", () => this.loadPrevious());
     this.clearQuestionBtn?.addEventListener("click", () => this.resetQuestion());
     this.submitCodeBtn?.addEventListener("click", () => this.submitSolution());
     this.showSolutionBtn?.addEventListener("click", () => this.showSolution());
@@ -269,24 +271,7 @@ class CodingTutor extends HTMLElement {
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
 
-      this.currentSessionId = data.sessionId || null;
-      this.currentBoilerplate = data.boilerplate || "";
-      this.currentSolution = data.solution || "";
-      this.solutionLanguage = this.normalizeLanguage(this.languageSelect?.value || "JavaScript");
-      this.currentLanguage = this.languageSelect?.value || "JavaScript";
-
-      this.topicTextEl.textContent = data.topic || "—";
-      this.difficultyTextEl.textContent = data.difficulty || "—";
-      this.sessionIdTextEl.textContent = this.currentSessionId || "—";
-      this.setQuestionText(data.question || "(No question text returned)");
-
-      if (this.codeInput) {
-        this.codeInput.value = this.currentBoilerplate || "";
-        this.lastSeededCode = this.codeInput.value;
-      }
-
-      this.setCardStatus(this.questionStatus, "idle", "Prompt loaded");
-      this.setGlobalStatus("idle", "Question ready.");
+      this.applySessionData(data, "Prompt loaded");
     } catch (err) {
       console.error(err);
       this.setCardStatus(this.questionStatus, "error", "Failed to load prompt");
@@ -312,28 +297,7 @@ class CodingTutor extends HTMLElement {
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
 
-      this.currentSessionId = data.sessionId || null;
-      this.currentBoilerplate = data.boilerplate || "";
-      this.currentSolution = data.solution || "";
-      this.solutionLanguage = this.normalizeLanguage(data.language || this.languageSelect?.value || "JavaScript");
-
-      if (data.language && this.languageSelect) {
-        this.languageSelect.value = data.language;
-      }
-      this.currentLanguage = this.languageSelect?.value || "JavaScript";
-
-      this.topicTextEl.textContent = data.topic || "—";
-      this.difficultyTextEl.textContent = data.difficulty || "—";
-      this.sessionIdTextEl.textContent = this.currentSessionId || "—";
-      this.setQuestionText(data.question || "(No question text returned)");
-
-      if (this.codeInput) {
-        this.codeInput.value = data.code || this.currentBoilerplate || "";
-        this.lastSeededCode = this.codeInput.value;
-      }
-
-      this.setCardStatus(this.questionStatus, "idle", "Session resumed");
-      this.setGlobalStatus("idle", "Session ready.");
+      this.applySessionData(data, "Session resumed");
     } catch (err) {
       console.error(err);
       this.setCardStatus(this.questionStatus, "error", "Failed to resume session");
@@ -342,6 +306,107 @@ class CodingTutor extends HTMLElement {
     } finally {
       this.resumeQuestionBtn.disabled = false;
     }
+  }
+
+  async loadPrevious() {
+    const email = this.safeEmail();
+    if (!email) return;
+
+    this.setGlobalStatus("loading", "Loading previous session...");
+    this.setCardStatus(this.questionStatus, "loading", "Loading session...");
+    this.loadPreviousBtn.disabled = true;
+
+    try {
+      const res = await fetch(
+        this.apiUrl(`/api/v1/coding/previous/${encodeURIComponent(email)}`)
+      );
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+
+      this.applySessionData(data, "Previous session loaded");
+    } catch (err) {
+      console.error(err);
+      this.setCardStatus(this.questionStatus, "error", "Failed to load session");
+      this.setGlobalStatus("error", "Error loading session");
+      alert("Error loading session:\n" + err.message);
+    } finally {
+      this.loadPreviousBtn.disabled = false;
+    }
+  }
+
+  async loadSessionById(sessionId) {
+    const email = this.safeEmail();
+    if (!email) return;
+
+    this.setGlobalStatus("loading", "Loading session...");
+    this.setCardStatus(this.questionStatus, "loading", "Loading session...");
+
+    try {
+      const res = await fetch(
+        this.apiUrl(`/api/v1/coding/session/${encodeURIComponent(sessionId)}?email=${encodeURIComponent(email)}`)
+      );
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+
+      this.applySessionData(data, "Session loaded");
+    } catch (err) {
+      console.error(err);
+      this.setCardStatus(this.questionStatus, "error", "Failed to load session");
+      this.setGlobalStatus("error", "Error loading session");
+      alert("Error loading session:\n" + err.message);
+    }
+  }
+
+  applySessionData(data, statusText) {
+    this.currentSessionId = data.sessionId || null;
+    this.currentBoilerplate = data.boilerplate || "";
+    this.currentSolution = data.solution || "";
+    this.solutionLanguage = this.normalizeLanguage(data.language || this.languageSelect?.value || "JavaScript");
+
+    if (data.language && this.languageSelect) {
+      this.languageSelect.value = data.language;
+    }
+    this.currentLanguage = this.languageSelect?.value || "JavaScript";
+
+    this.topicTextEl.textContent = data.topic || "—";
+    this.difficultyTextEl.textContent = data.difficulty || "—";
+    this.sessionIdTextEl.textContent = this.currentSessionId || "—";
+    this.setQuestionText(data.question || "(No question text returned)");
+
+    if (this.codeInput) {
+      this.codeInput.value = data.code || this.currentBoilerplate || "";
+      this.lastSeededCode = this.codeInput.value;
+    }
+
+    this.applyEvaluation(data.evaluation || null);
+
+    this.setCardStatus(this.questionStatus, "idle", statusText || "Loaded");
+    this.setGlobalStatus("idle", "Session ready.");
+  }
+
+  applyEvaluation(evaluation) {
+    if (!evaluation) {
+      this.evalSummary.textContent = "Submit a solution to get feedback.";
+      this.evalCorrectness.textContent = "—";
+      this.evalTime.textContent = "—";
+      this.evalSpace.textContent = "—";
+      this.renderListFromArray(this.evalStrengths, [], "No strengths yet.");
+      this.renderListFromArray(this.evalWeaknesses, [], "No weaknesses yet.");
+      this.renderListFromArray(this.evalIssues, [], "No issues yet.");
+      this.renderListFromArray(this.evalSuggestions, [], "No suggestions yet.");
+      this.setCardStatus(this.evaluationStatus, "idle", "Idle");
+      return;
+    }
+
+    this.evalSummary.textContent = evaluation.summary || "Previously evaluated.";
+    this.evalCorrectness.textContent = evaluation.correctness || "—";
+    this.evalTime.textContent = evaluation.timeComplexity || "—";
+    this.evalSpace.textContent = evaluation.spaceComplexity || "—";
+    this.renderListFromArray(this.evalStrengths, evaluation.strengths, "No strengths returned.");
+    this.renderListFromArray(this.evalWeaknesses, evaluation.weaknesses, "No weaknesses returned.");
+    this.renderListFromArray(this.evalIssues, evaluation.issues, "No issues returned.");
+    this.renderListFromArray(this.evalSuggestions, evaluation.suggestions, "No suggestions returned.");
+    this.setCardStatus(this.evaluationStatus, "idle", "Evaluation loaded");
   }
 
   showSolution() {
@@ -493,12 +558,27 @@ class CodingTutor extends HTMLElement {
           ? s.question.trim()
           : s.topic || "Session";
       item.innerHTML = `
-        <div class="history-topic">${questionText}</div>
-        <div class="history-meta">
-          <span class="pill-score">Score: ${s.score ?? "—"}</span>
-          <span class="pill-difficulty">${s.difficulty || "—"}</span>
-          <span>${new Date(s.createdAt || Date.now()).toLocaleString()}</span>
+        <div class="history-row">
+          <div class="history-main">
+            <div class="history-topic">${questionText}</div>
+            <div class="history-meta">
+              <span class="pill-score">Score: ${s.score ?? "—"}</span>
+              <span class="pill-difficulty">${s.difficulty || "—"}</span>
+              <span>${new Date(s.createdAt || Date.now()).toLocaleString()}</span>
+            </div>
+          </div>
+          <div class="history-actions">
+            <button class="btn btn-secondary btn-compact" data-session-id="${s.id}">Resume</button>
+          </div>
         </div>`;
+      const resumeBtn = item.querySelector(".btn-compact");
+      if (resumeBtn) {
+        resumeBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.loadSessionById(s.id);
+        });
+      }
+      item.addEventListener("click", () => this.loadSessionById(s.id));
       this.historyViewPretty.appendChild(item);
     });
   }
