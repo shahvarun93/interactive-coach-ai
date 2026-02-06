@@ -409,7 +409,7 @@ Provide a correct reference solution (full implementation) that matches the sign
 Do not include main() or I/O handling in the solution.`;
 
   const payload = await responsesClient.openAiClientJsonResponse({
-    model: "gpt-5",
+    model: "gpt-4.1-mini",
     temperature: 0.8,
     messages: [
       { role: "system", content: systemPrompt },
@@ -474,7 +474,7 @@ Rules:
   );
 
   const payload = await responsesClient.openAiClientJsonResponse({
-    model: "gpt-5",
+    model: "gpt-4.1-mini",
     temperature: 0.3,
     messages: [
       { role: "system", content: systemPrompt },

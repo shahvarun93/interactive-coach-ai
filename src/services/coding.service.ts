@@ -111,22 +111,12 @@ export async function submitCodingSolution(args: {
     userSignature,
   });
 
-  const numericScore = Number(evaluation.score);
-  if (!Number.isFinite(numericScore)) {
-    throw new Error("INVALID_SCORE");
-  }
-
-  await codingDao.updateCodingSession({
-    sessionId: session.id,
-    code: args.code,
-    language: args.language,
-    score: numericScore,
-    strengths: JSON.stringify(evaluation.strengths),
-    weaknesses: JSON.stringify(evaluation.weaknesses),
-    issues: JSON.stringify(evaluation.issues),
-    timeComplexity: evaluation.timeComplexity,
-    spaceComplexity: evaluation.spaceComplexity,
-  });
+  const numericScore = await updateSessionWithEvaluation(
+    session.id,
+    args.code,
+    args.language,
+    evaluation
+  );
 
   return { sessionId: session.id, evaluation: { ...evaluation, score: numericScore } };
 }
@@ -367,6 +357,32 @@ function deriveCorrectness(score: number): "correct" | "partially_correct" | "in
   if (score >= 8) return "correct";
   if (score >= 5) return "partially_correct";
   return "incorrect";
+}
+
+async function updateSessionWithEvaluation(
+  sessionId: string,
+  code: string,
+  language: string,
+  evaluation: CodingEvaluation
+) {
+  const numericScore = Number(evaluation.score);
+  if (!Number.isFinite(numericScore)) {
+    throw new Error("INVALID_SCORE");
+  }
+
+  await codingDao.updateCodingSession({
+    sessionId,
+    code,
+    language,
+    score: numericScore,
+    strengths: JSON.stringify(evaluation.strengths),
+    weaknesses: JSON.stringify(evaluation.weaknesses),
+    issues: JSON.stringify(evaluation.issues),
+    timeComplexity: evaluation.timeComplexity,
+    spaceComplexity: evaluation.spaceComplexity,
+  });
+
+  return numericScore;
 }
 
 function buildEvaluationFromSession(session: { score?: any; strengths?: any; weaknesses?: any; issues?: any; time_complexity?: any; space_complexity?: any }) {
