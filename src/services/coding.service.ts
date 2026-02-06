@@ -2,6 +2,7 @@ import * as usersDao from "../dao/users.dao";
 import * as codingDao from "../dao/coding.dao";
 import * as codingAi from "./coding-ai.service";
 import { getCodingSolution, saveCodingSolution } from "./coding-solution.store";
+import { getCodingMetadata, saveCodingMetadata } from "./coding-metadata.store";
 import { CodingEvaluation } from "../interfaces/CodingEvaluation";
 import {
   CodingDifficulty,
@@ -59,6 +60,11 @@ export async function createCodingSessionForUser(args: {
   });
 
   await saveCodingSolution(session.id, generated.solution);
+  await saveCodingMetadata(session.id, {
+    language,
+    boilerplate: generated.boilerplate,
+    signature: generated.signature,
+  });
 
   return {
     sessionId: session.id,
@@ -68,6 +74,7 @@ export async function createCodingSessionForUser(args: {
     userId: user.id,
     boilerplate: generated.boilerplate,
     solution: generated.solution,
+    signature: generated.signature,
   };
 }
 
@@ -82,6 +89,12 @@ export async function submitCodingSolution(args: {
   }
 
   const solution = await getCodingSolution(session.id);
+  const metadata = await getCodingMetadata(session.id);
+  const expectedSignature = metadata?.signature ?? null;
+  const userSignature = codingAi.extractSignatureFromSolution(
+    args.language || session.language || "unknown",
+    args.code
+  );
   if (solution) {
     const normalized = (s: string) => s.replace(/\s+/g, "").trim();
     if (normalized(args.code) === normalized(solution)) {
@@ -94,6 +107,8 @@ export async function submitCodingSolution(args: {
     code: args.code,
     language: args.language || session.language || "unknown",
     difficulty: (session.difficulty ?? "medium") as CodingDifficulty,
+    expectedSignature,
+    userSignature,
   });
 
   const numericScore = Number(evaluation.score);
@@ -214,8 +229,12 @@ export async function resumeLatestCodingSessionForEmail(email: string) {
     throw new Error("NO_ACTIVE_SESSION");
   }
 
+  const metadata = await getCodingMetadata(session.id);
   const normalizedLang = codingAi.normalizeLanguage(session.language ?? "JavaScript");
-  const boilerplate = codingAi.boilerplateForLanguage(normalizedLang);
+  const signature = metadata?.signature ?? null;
+  const boilerplate = signature
+    ? codingAi.boilerplateForSignature(normalizedLang, signature)
+    : metadata?.boilerplate ?? codingAi.boilerplateForLanguage(normalizedLang);
 
   const solution = await getCodingSolution(session.id);
   const evaluation = buildEvaluationFromSession(session);
@@ -230,6 +249,7 @@ export async function resumeLatestCodingSessionForEmail(email: string) {
     code: session.code ?? boilerplate,
     solution: solution ?? null,
     evaluation,
+    signature,
   };
 }
 
@@ -244,8 +264,12 @@ export async function getLatestCodingSessionForEmail(email: string) {
     throw new Error("NO_SESSION");
   }
 
+  const metadata = await getCodingMetadata(session.id);
   const normalizedLang = codingAi.normalizeLanguage(session.language ?? "JavaScript");
-  const boilerplate = codingAi.boilerplateForLanguage(normalizedLang);
+  const signature = metadata?.signature ?? null;
+  const boilerplate = signature
+    ? codingAi.boilerplateForSignature(normalizedLang, signature)
+    : metadata?.boilerplate ?? codingAi.boilerplateForLanguage(normalizedLang);
   const solution = await getCodingSolution(session.id);
   const evaluation = buildEvaluationFromSession(session);
 
@@ -259,6 +283,7 @@ export async function getLatestCodingSessionForEmail(email: string) {
     code: session.code ?? boilerplate,
     solution: solution ?? null,
     evaluation,
+    signature,
   };
 }
 
@@ -273,8 +298,12 @@ export async function getCodingSessionForEmail(email: string, sessionId: string)
     throw new Error("SESSION_NOT_FOUND");
   }
 
+  const metadata = await getCodingMetadata(session.id);
   const normalizedLang = codingAi.normalizeLanguage(session.language ?? "JavaScript");
-  const boilerplate = codingAi.boilerplateForLanguage(normalizedLang);
+  const signature = metadata?.signature ?? null;
+  const boilerplate = signature
+    ? codingAi.boilerplateForSignature(normalizedLang, signature)
+    : metadata?.boilerplate ?? codingAi.boilerplateForLanguage(normalizedLang);
   const solution = await getCodingSolution(session.id);
   const evaluation = buildEvaluationFromSession(session);
 
@@ -288,6 +317,29 @@ export async function getCodingSessionForEmail(email: string, sessionId: string)
     code: session.code ?? boilerplate,
     solution: solution ?? null,
     evaluation,
+    signature,
+  };
+}
+
+export async function getBoilerplateForSession(sessionId: string, language: string) {
+  const session = await codingDao.getSessionById(sessionId);
+  if (!session) {
+    throw new Error("SESSION_NOT_FOUND");
+  }
+  const metadata = await getCodingMetadata(session.id);
+  const signature = metadata?.signature ?? null;
+  const normalizedLang = codingAi.normalizeLanguage(language || session.language || "JavaScript");
+  const boilerplate = signature
+    ? codingAi.boilerplateForSignature(normalizedLang, signature)
+    : codingAi.boilerplateForLanguage(normalizedLang);
+
+  const solution = await getCodingSolution(session.id);
+  return {
+    sessionId: session.id,
+    language: normalizedLang,
+    boilerplate,
+    solutionLanguage: session.language ?? "JavaScript",
+    hasSolution: Boolean(solution),
   };
 }
 

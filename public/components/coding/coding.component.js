@@ -173,7 +173,8 @@ class CodingTutor extends HTMLElement {
 
   clearCode() {
     if (this.codeInput) {
-      this.codeInput.value = this.currentBoilerplate || "";
+      const fallback = this.currentBoilerplate || "";
+      this.codeInput.value = fallback;
       this.lastSeededCode = this.codeInput.value;
     }
   }
@@ -189,38 +190,26 @@ class CodingTutor extends HTMLElement {
     textarea.selectionStart = textarea.selectionEnd = start + tab.length;
   }
 
-  normalizeLanguage(lang) {
-    const key = String(lang || "").trim().toLowerCase();
-    if (key.startsWith("js")) return "javascript";
-    if (key.includes("typescript") || key === "ts") return "typescript";
-    if (key.includes("python")) return "python";
-    if (key.includes("java")) return "java";
-    if (key.includes("go")) return "go";
-    return "javascript";
-  }
-
-  getBoilerplateForLanguage(lang) {
-    switch (lang) {
-      case "typescript":
-        return `function solve(input: string): string {\n  // TODO: implement\n  return \"\";\n}\n\nexport default solve;`;
-      case "python":
-        return `def solve(input: str) -> str:\n    # TODO: implement\n    return \"\"\n\nif __name__ == \"__main__\":\n    import sys\n    data = sys.stdin.read()\n    print(solve(data))`;
-      case "java":
-        return `import java.io.*;\nimport java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) throws Exception {\n        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));\n        StringBuilder sb = new StringBuilder();\n        String line;\n        while ((line = br.readLine()) != null) {\n            sb.append(line).append(\"\\n\");\n        }\n        System.out.print(solve(sb.toString()));\n    }\n\n    static String solve(String input) {\n        // TODO: implement\n        return \"\";\n    }\n}`;
-      case "go":
-        return `package main\n\nimport (\n  \"bufio\"\n  \"fmt\"\n  \"os\"\n  \"strings\"\n)\n\nfunc solve(input string) string {\n  // TODO: implement\n  return \"\"\n}\n\nfunc main() {\n  reader := bufio.NewReader(os.Stdin)\n  data, _ := reader.ReadString(0)\n  if len(data) == 0 {\n    b, _ := os.ReadFile(\"/dev/stdin\")\n    data = string(b)\n  }\n  fmt.Print(solve(strings.TrimRight(data, \"\\n\")))\n}`;
-      case "javascript":
-      default:
-        return `function solve(input) {\n  // TODO: implement\n  return \"\";\n}\n\nmodule.exports = solve;`;
+  async fetchBoilerplate(language) {
+    if (!this.currentSessionId) return null;
+    const res = await fetch(
+      this.apiUrl(
+        `/api/v1/coding/boilerplate?sessionId=${encodeURIComponent(
+          this.currentSessionId
+        )}&language=${encodeURIComponent(language)}`
+      )
+    );
+    if (!res.ok) {
+      throw new Error(await res.text());
     }
+    const data = await res.json();
+    return data.boilerplate || "";
   }
 
-  handleLanguageChange() {
+  async handleLanguageChange() {
     const newLang = this.languageSelect?.value || "JavaScript";
-    const normalizedNew = this.normalizeLanguage(newLang);
-    const normalizedPrev = this.normalizeLanguage(this.currentLanguage || newLang);
-
-    if (normalizedNew === normalizedPrev) return;
+    const prevLang = this.currentLanguage || newLang;
+    if (newLang === prevLang) return;
 
     const currentCode = this.codeInput?.value || "";
     const hasEdits = currentCode !== (this.lastSeededCode || "");
@@ -235,16 +224,22 @@ class CodingTutor extends HTMLElement {
       }
     }
 
-    const boilerplate = this.getBoilerplateForLanguage(normalizedNew);
-    this.currentBoilerplate = boilerplate;
-    this.currentSolution = "";
-    this.solutionLanguage = null;
-    if (this.codeInput) {
-      this.codeInput.value = boilerplate;
-      this.lastSeededCode = boilerplate;
+    try {
+      this.setCardStatus(this.answerStatus, "loading", "Updating boilerplate...");
+      const boilerplate = await this.fetchBoilerplate(newLang);
+      this.currentBoilerplate = boilerplate;
+      this.currentSolution = "";
+      if (this.codeInput) {
+        this.codeInput.value = boilerplate;
+        this.lastSeededCode = boilerplate;
+      }
+      this.currentLanguage = newLang;
+      this.setCardStatus(this.answerStatus, "idle", `Boilerplate set for ${newLang}.`);
+    } catch (err) {
+      console.error(err);
+      this.setCardStatus(this.answerStatus, "error", "Failed to update boilerplate");
+      alert("Failed to update boilerplate:\n" + err.message);
     }
-    this.currentLanguage = newLang;
-    this.setCardStatus(this.answerStatus, "idle", `Boilerplate set for ${newLang}.`);
   }
 
   normalizeCode(code) {
@@ -361,7 +356,7 @@ class CodingTutor extends HTMLElement {
     this.currentSessionId = data.sessionId || null;
     this.currentBoilerplate = data.boilerplate || "";
     this.currentSolution = data.solution || "";
-    this.solutionLanguage = this.normalizeLanguage(data.language || this.languageSelect?.value || "JavaScript");
+    this.solutionLanguage = data.solutionLanguage || data.language || null;
 
     if (data.language && this.languageSelect) {
       this.languageSelect.value = data.language;
@@ -374,7 +369,8 @@ class CodingTutor extends HTMLElement {
     this.setQuestionText(data.question || "(No question text returned)");
 
     if (this.codeInput) {
-      this.codeInput.value = data.code || this.currentBoilerplate || "";
+      const fallbackBoilerplate = this.currentBoilerplate || "";
+      this.codeInput.value = data.code || fallbackBoilerplate || "";
       this.lastSeededCode = this.codeInput.value;
     }
 
@@ -382,6 +378,16 @@ class CodingTutor extends HTMLElement {
 
     this.setCardStatus(this.questionStatus, "idle", statusText || "Loaded");
     this.setGlobalStatus("idle", "Session ready.");
+  }
+
+  updateScorePill(scoreValue) {
+    const numeric = Number(scoreValue);
+    if (Number.isFinite(numeric)) {
+      this.lastScoreEl.textContent = `Score: ${numeric}`;
+      this.lastScoreEl.style.display = "inline-flex";
+    } else {
+      this.lastScoreEl.style.display = "none";
+    }
   }
 
   applyEvaluation(evaluation) {
@@ -395,6 +401,7 @@ class CodingTutor extends HTMLElement {
       this.renderListFromArray(this.evalIssues, [], "No issues yet.");
       this.renderListFromArray(this.evalSuggestions, [], "No suggestions yet.");
       this.setCardStatus(this.evaluationStatus, "idle", "Idle");
+      this.updateScorePill(null);
       return;
     }
 
@@ -407,6 +414,7 @@ class CodingTutor extends HTMLElement {
     this.renderListFromArray(this.evalIssues, evaluation.issues, "No issues returned.");
     this.renderListFromArray(this.evalSuggestions, evaluation.suggestions, "No suggestions returned.");
     this.setCardStatus(this.evaluationStatus, "idle", "Evaluation loaded");
+    this.updateScorePill(evaluation.score);
   }
 
   showSolution() {
@@ -414,8 +422,9 @@ class CodingTutor extends HTMLElement {
       alert("No solution available yet. Generate a question first.");
       return;
     }
-    const currentLang = this.normalizeLanguage(this.languageSelect?.value || "JavaScript");
-    if (this.solutionLanguage && this.solutionLanguage !== currentLang) {
+    const currentLang = (this.languageSelect?.value || "JavaScript").toLowerCase();
+    const solutionLang = (this.solutionLanguage || "").toLowerCase();
+    if (solutionLang && solutionLang !== currentLang) {
       alert("Solution is tied to the original language. Generate a new question for this language.");
       return;
     }
@@ -459,17 +468,13 @@ class CodingTutor extends HTMLElement {
       const data = await res.json();
 
       const evaluation = data.evaluation || {};
-      const score = Number(
-        typeof data.score === "number" || typeof data.score === "string"
+      const score =
+        data.score != null
           ? data.score
-          : evaluation.score
-      );
-      if (Number.isFinite(score)) {
-        this.lastScoreEl.textContent = `Score: ${score}`;
-        this.lastScoreEl.style.display = "inline-flex";
-      } else {
-        this.lastScoreEl.style.display = "none";
-      }
+          : evaluation && evaluation.score != null
+            ? evaluation.score
+            : null;
+      this.updateScorePill(score);
 
       this.evalSummary.textContent = evaluation.summary || "No summary returned.";
       this.evalCorrectness.textContent = evaluation.correctness || "—";

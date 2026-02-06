@@ -151,4 +151,22 @@ router.get("/session/:sessionId", async (req, res) => {
   }
 });
 
+router.get("/boilerplate", async (req, res) => {
+  try {
+    const sessionId = typeof req.query.sessionId === "string" ? req.query.sessionId : "";
+    const language = typeof req.query.language === "string" ? req.query.language : "";
+    if (!sessionId || !language) {
+      return res.status(400).json({ error: "sessionId and language are required" });
+    }
+    const result = await codingService.getBoilerplateForSession(sessionId, language);
+    return res.json(result);
+  } catch (err: any) {
+    if (err.message === "SESSION_NOT_FOUND") {
+      return res.status(404).json({ error: "Session not found" });
+    }
+    console.error("Error building boilerplate:", err);
+    return res.status(500).json({ error: "Failed to build boilerplate" });
+  }
+});
+
 export default router;
