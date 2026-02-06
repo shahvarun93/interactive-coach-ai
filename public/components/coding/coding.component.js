@@ -171,12 +171,22 @@ class CodingTutor extends HTMLElement {
     this.lastScoreEl.style.display = "none";
   }
 
-  clearCode() {
-    if (this.codeInput) {
-      const fallback = this.currentBoilerplate || "";
-      this.codeInput.value = fallback;
-      this.lastSeededCode = this.codeInput.value;
+  async clearCode() {
+    if (!this.codeInput) return;
+    let fallback = this.currentBoilerplate || "";
+    if (this.currentSessionId && this.currentLanguage) {
+      try {
+        const refreshed = await this.fetchBoilerplate(this.currentLanguage);
+        if (refreshed) {
+          this.currentBoilerplate = refreshed;
+          fallback = refreshed;
+        }
+      } catch (err) {
+        console.error(err);
+      }
     }
+    this.codeInput.value = fallback;
+    this.lastSeededCode = this.codeInput.value;
   }
 
   insertTabSpaces() {
@@ -489,6 +499,9 @@ class CodingTutor extends HTMLElement {
       this.setCardStatus(this.answerStatus, "idle", "Solution submitted");
       this.setCardStatus(this.evaluationStatus, "idle", "Evaluation ready");
       this.setGlobalStatus("idle", "Feedback ready.");
+      if ((this.emailInput?.value || "").trim()) {
+        this.loadHistory();
+      }
     } catch (err) {
       console.error(err);
       this.setCardStatus(this.answerStatus, "error", "Failed to submit solution");
