@@ -1,5 +1,57 @@
+# Environment & Secrets
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# IDE & Editor
+.cursor/
+.vscode/
+
+# Internal docs (already tracked — remove from repo)
+AI.md
+Prompts.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Redis
+dump.rdb
+
+# Temporary
+tmp/
+*.tmp
+
 .env
 node_modules/
 AI.md
 Prompts.md
 dist/
+
+.codex/
+.vscode/
+
+.DS_Store
+Thumbs.db
+
+*.log
+npm-debug.log*
+
+*.tsbuildinfo
+
+*.tmp
