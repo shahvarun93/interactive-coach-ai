@@ -1,7 +1,7 @@
 import { ChatCompletionResult, ChatMessage } from "../interfaces/Chat";
 import * as openAiClient from "../infra/openaiClient";
 
-const DEFAULT_MODEL = process.env.OPENAI_MODEL || "gpt-5.2";
+const DEFAULT_MODEL = "gpt-5.2";
 
 export async function generateAssistantResponse(args: {
   messages: ChatMessage[];
