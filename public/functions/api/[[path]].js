@@ -7,7 +7,7 @@ export async function onRequest(context) {
   //   - Use the GKE Ingress external IP directly (from `kubectl get ingress` / GCP console), OR
   //   - Use a real hostname (best), OR
   //   - Use a free nip.io hostname for an IP: http://<IP>.nip.io (no domain purchase)
-  const BACKEND_ORIGIN = "http://34.149.127.45.nip.io";
+  const BACKEND_ORIGIN = "https://interactive-coach-930312900804.us-central1.run.app";
 
   const incomingUrl = new URL(request.url);
 
