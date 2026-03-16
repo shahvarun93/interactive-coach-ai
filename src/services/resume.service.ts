@@ -6,7 +6,6 @@ import {
   AnalyzeResumeTextInput,
 } from "../interfaces/ResumeAnalysis";
 import { TailorResumeFromTextInput } from "../interfaces/ResumeService";
-import pdfParseModule from "pdf-parse";
 import mammoth from "mammoth";
 
 /**
@@ -76,7 +75,8 @@ export async function extractResumeTextFromFile(
   // 2) PDF files
   if (mime === "application/pdf" || originalName.endsWith(".pdf")) {
     try {
-      const parsed = await new pdfParseModule.PDFParse(file.buffer);
+      const pdfParse = (await import('pdf-parse')).PDFParse;
+      const parsed = await new pdfParse(file.buffer);
       const parsedText = await parsed.getText();
       const text = (parsedText.text || "").trim();
       if (text.length > 0) {
