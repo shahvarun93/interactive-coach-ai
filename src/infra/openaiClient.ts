@@ -21,6 +21,98 @@ import {
 
 const AI_LOG_DEBUG = process.env.AI_LOG_DEBUG === "1";
 
+// Basic in-memory aggregation for OpenAI usage.
+// Enterprise rationale:
+// - Single place to track tokens and cost, instead of sprinkling logic across services.
+// - Can later be exported via a metrics endpoint or pushed to Prometheus / logs.
+type OpenAiUsageTotals = {
+  calls: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  costUsd: number;
+};
+
+type ModelPricing = {
+  // USD per 1K input tokens
+  inputUsdPer1K: number;
+  // USD per 1K output tokens (if different from input)
+  outputUsdPer1K?: number;
+};
+
+// NOTE: Fill these with real prices from OpenAI's pricing page for accurate cost.
+// Keeping them as 0 by default so the wiring is safe until configured.
+const MODEL_PRICING_USD: Record<string, ModelPricing> = {
+  "gpt-5": { inputUsdPer1K: 0, outputUsdPer1K: 0 },
+  "gpt-4.1-mini": { inputUsdPer1K: 0, outputUsdPer1K: 0 },
+  "text-embedding-3-small": { inputUsdPer1K: 0 },
+};
+
+const openAiUsageByModel: Record<string, OpenAiUsageTotals> = {};
+
+function getOrInitModelTotals(model: string): OpenAiUsageTotals {
+  if (!openAiUsageByModel[model]) {
+    openAiUsageByModel[model] = {
+      calls: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      costUsd: 0,
+    };
+  }
+  return openAiUsageByModel[model];
+}
+
+function recordOpenAiUsage(model: string, usage: any) {
+  // The various OpenAI endpoints expose slightly different usage shapes.
+  const rawUsage = usage ?? {};
+  const promptTokens =
+    rawUsage.prompt_tokens ??
+    rawUsage.input_tokens ??
+    null;
+  const completionTokens =
+    rawUsage.completion_tokens ??
+    rawUsage.output_tokens ??
+    null;
+
+  const totalTokens =
+    rawUsage.total_tokens ??
+    (promptTokens != null || completionTokens != null
+      ? (promptTokens ?? 0) + (completionTokens ?? 0)
+      : null);
+
+  const pricing: ModelPricing =
+    MODEL_PRICING_USD[model] ?? { inputUsdPer1K: 0, outputUsdPer1K: 0 };
+
+  const inputPrice = pricing.inputUsdPer1K ?? 0;
+  const outputPrice =
+    pricing.outputUsdPer1K != null ? pricing.outputUsdPer1K : inputPrice;
+
+  const promptCostUsd =
+    promptTokens != null ? (promptTokens / 1000) * inputPrice : 0;
+  const completionCostUsd =
+    completionTokens != null ? (completionTokens / 1000) * outputPrice : 0;
+
+  const totals = getOrInitModelTotals(model);
+  totals.calls += 1;
+  if (promptTokens != null) {
+    totals.promptTokens += promptTokens;
+  }
+  if (completionTokens != null) {
+    totals.completionTokens += completionTokens;
+  }
+  if (totalTokens != null) {
+    totals.totalTokens += totalTokens;
+  }
+  totals.costUsd += promptCostUsd + completionCostUsd;
+}
+
+// Snapshot for metrics endpoint / debugging.
+// Returns a deep-cloned view so callers can't mutate internal state.
+export function getOpenAiUsageSnapshot(): Record<string, OpenAiUsageTotals> {
+  return JSON.parse(JSON.stringify(openAiUsageByModel));
+}
+
 export class OpenAiQuotaError extends Error {
   public original: unknown;
 
@@ -149,6 +241,8 @@ async function openAiClientJsonResponse<T>({
     client.responses.create(payload)
   );
 
+  recordOpenAiUsage(model, (response as any).usage);
+
   const raw = extractText(response);
 
   try {
@@ -179,6 +273,8 @@ async function openAiClientTextResponse({
     client.responses.create(payload)
   );
 
+  recordOpenAiUsage(model, (response as any).usage);
+
   return extractText(response);
 }
 
@@ -193,6 +289,9 @@ async function openAiClientCreateChatCompletion<T>(
       ...(params.responseFormat ? { response_format: params.responseFormat} : {})
     })
   );
+
+  // Chat completions expose detailed usage; we account for them here.
+  recordOpenAiUsage(params.model, response.usage);
 
   return {
     text: response.choices?.[0]?.message?.content ?? "",
@@ -237,6 +336,9 @@ export async function createEmbeddingForText(input: string): Promise<number[]> {
     })
   );
 
+  // Embeddings contribute significantly to RAG cost at scale; track them too.
+  recordOpenAiUsage(model, (response as any).usage);
+
   const embedding = response.data[0]?.embedding;
   if (!embedding) {
     throw new Error("No embedding returned from OpenAI");
@@ -253,6 +355,8 @@ export async function embedText(text: string): Promise<number[]> {
       input: text,
     })
   );
+
+  recordOpenAiUsage(model, (resp as any).usage);
 
   return resp.data[0].embedding;
 }

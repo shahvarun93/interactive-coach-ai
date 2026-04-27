@@ -1,6 +1,7 @@
 // src/routes/health.ts
 import { Router } from 'express';
 import { dbHealthCheck } from '../db';
+import { getOpenAiUsageSnapshot } from '../infra/openaiClient';
 
 const router = Router();
 
@@ -26,6 +27,18 @@ router.get('/dbhealth', async (_req, res) => {
       error: 'DB check failed',
     });
   }
+});
+
+// Lightweight metrics endpoint for OpenAI token + cost usage.
+// Enterprise rationale:
+// - Keeps metrics under the existing /health namespace, which SREs already scrape.
+// - Exposes per-model aggregates without leaking internal implementation details.
+router.get('/metrics/openai', (_req, res) => {
+  const usageByModel = getOpenAiUsageSnapshot();
+  res.json({
+    source: 'openai_client',
+    models: usageByModel,
+  });
 });
 
 export default router;

@@ -4,7 +4,7 @@ export REGION=us-central1
 export CLUSTER_NAME=sd-copilot-cluster
 export REPO=sd-copilot
 export IMAGE_NAME=system-design-copilot
-export TAG=${1}
+export TAG=v22
 FULL_IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE_NAME:$TAG"
 
 echo "$FULL_IMAGE"
@@ -27,3 +27,13 @@ kubectl set image deployment/sd-copilot-deployment \
 
 POD_LOGS=$(kubectl get po -n sd-copilot)
 echo "${POD_LOGS}"
+
+gcloud run deploy interactive-coach \
+  --image us-central1-docker.pkg.dev/system-design-copilot-140494/sd-copilot/system-design-copilot:v22 \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --max-instances 2 \
+  --memory 2Gi \
+  --port 3000 \
+  --env-vars-file .env

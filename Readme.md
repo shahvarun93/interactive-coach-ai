@@ -22,6 +22,7 @@ The goal of this project is to simulate a realistic FAANG‑style system design 
 - [Environment & Setup](#environment--setup)
 - [Development Scripts](#development-scripts)
 - [How the AI Pieces Work](#how-the-ai-pieces-work)
+- [LLM Usage, Costs & Metrics](#llm-usage-costs--metrics)
 - [Roadmap](#roadmap)
 
 ---
@@ -478,6 +479,85 @@ While not using a formal agent framework, the project defines clear “agent‑l
   Uses aggregated stats + resources to create a multi‑step study plan (focus topics, sequence, practice suggestions).
 
 These are implemented as service functions that call the OpenAI client with specific prompts and schemas.
+
+---
+
+## LLM Usage, Costs & Metrics
+
+This project treats **LLM usage and cost** as first‑class production concerns, not an afterthought.
+
+### Centralized OpenAI client instrumentation
+
+All OpenAI calls (questions, coach feedback, next‑topic suggestions, study plans, embeddings for RAG, etc.) go through a single client in `src/infra/openaiClient.ts`.
+
+At that boundary, the client:
+
+- wraps each OpenAI call in a timing helper (`timeOpenAiCall`) to log latency and normalize errors, and
+- records **token usage and approximate cost per model** via an in‑memory accumulator:
+  - `calls`
+  - `promptTokens`
+  - `completionTokens`
+  - `totalTokens`
+  - `costUsd`
+
+Internally, the client looks at the `usage` block on OpenAI responses (e.g. `prompt_tokens`, `completion_tokens`, `total_tokens`) and multiplies by a small **model pricing table**:
+
+```ts
+const MODEL_PRICING_USD: Record<string, { inputUsdPer1K: number; outputUsdPer1K?: number }> = {
+  "gpt-5": { inputUsdPer1K: 0, outputUsdPer1K: 0 },
+  "gpt-4.1-mini": { inputUsdPer1K: 0, outputUsdPer1K: 0 },
+  "text-embedding-3-small": { inputUsdPer1K: 0 },
+};
+```
+
+> **Configure this for your environment:**  
+> Replace the zero values with the current per‑1K token prices from OpenAI’s pricing page before using these numbers for real cost reporting.
+
+Because this logic lives in the shared client (not in individual services like `system-design-ai.service.ts` or `coding-ai.service.ts`), new features automatically participate in usage tracking with **no additional plumbing**.
+
+### OpenAI metrics endpoint
+
+To make these stats observable without attaching a full metrics stack, the project exposes a small internal endpoint under the existing health router:
+
+- **Route:** `GET /api/v1/health/metrics/openai`  
+- **Auth:** Protected by the same `X-Internal-Api-Key` middleware as other `/api/v1` routes.
+
+Sample response shape:
+
+```json
+{
+  "source": "openai_client",
+  "models": {
+    "gpt-5": {
+      "calls": 12,
+      "promptTokens": 8450,
+      "completionTokens": 3920,
+      "totalTokens": 12370,
+      "costUsd": 0.48
+    },
+    "text-embedding-3-small": {
+      "calls": 30,
+      "promptTokens": 9100,
+      "completionTokens": 0,
+      "totalTokens": 9100,
+      "costUsd": 0.02
+    }
+  }
+}
+```
+
+### How you would use this in a real deployment
+
+- **Dashboards / alerts**  
+  - Point a lightweight scraper or Prometheus job at `/api/v1/health/metrics/openai` (with the internal API key) to track:
+    - token usage per model,
+    - total estimated cost per process,
+    - spikes in call volume or cost.
+- **Per‑feature attribution (optional extension)**  
+  - The current implementation aggregates per model.  
+  - In a production system, you can extend the client to accept a `feature` or `caller` label (e.g., `system-design-question`, `sd-coach`, `resume-analyze`) and emit **per‑feature** metrics (e.g., counters in Prometheus or a `openai_usage` table in Postgres).
+- **Budget enforcement (optional extension)**  
+  - With a small wrapper around the client, you can reject or degrade non‑critical requests once a daily/monthly budget threshold is crossed (e.g., “don’t run resume‑tailoring when we’re above 90% of our LLM budget, but keep core system design coaching alive”).
 
 ### 3. RAG (semantic retrieval with pgvector)
 

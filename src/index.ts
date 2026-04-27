@@ -11,6 +11,7 @@ import systemDesignRouter from "./routes/system-design";
 import resumeRouter from "./routes/resume";
 import interviewRouter from "./routes/interview";
 import codingRouter from "./routes/coding";
+import "./services/keepAliveService";
 
 const app = express();
 const PORT = process.env.PORT || 3000;

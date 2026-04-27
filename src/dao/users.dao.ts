@@ -23,3 +23,14 @@ export async function findUserByEmail(email: string): Promise<User | null> {
     );
     return res.rows[0] || null;
 }
+
+export async function findUserById(userId: string): Promise<User | null> {
+    const res = await query(
+      `SELECT id, email, name, created_at
+       FROM users_tbl
+       WHERE id = $1
+       LIMIT 1`,
+      [userId]
+    );
+    return (res.rows[0] as User) || null;
+}
